@@ -4,7 +4,6 @@ import { fetchShaderCode } from "../infrastructure/utils";
 
 export class Renderer {
   private pipeline: GPURenderPipeline | null = null;
-  private bindGroup: GPUBindGroup | null = null;
   private device: GPUDevice | null = null;
   private context: GPUCanvasContext | null = null;
   private canvasFormat: GPUTextureFormat | null = null;
@@ -40,6 +39,7 @@ export class Renderer {
         buffers: [
           {
             arrayStride: 4 * 8,
+            stepMode: "instance",
             attributes: [
               {
                 shaderLocation: 0,
@@ -56,11 +56,23 @@ export class Renderer {
         targets: [
           {
             format: this.canvasFormat!,
+            blend: {
+              color: {
+                srcFactor: "src-alpha",
+                dstFactor: "one-minus-src-alpha",
+                operation: "add",
+              },
+              alpha: {
+                srcFactor: "one",
+                dstFactor: "one-minus-src-alpha",
+                operation: "add",
+              },
+            },
           },
         ],
       },
       primitive: {
-        topology: "point-list",
+        topology: "triangle-list",
       },
     });
 
@@ -87,7 +99,7 @@ export class Renderer {
     });
     renderPass.setPipeline(this.pipeline);
     renderPass.setVertexBuffer(0, this.vertexBuffer);
-    renderPass.draw(this.vertexCount, 1, 0, 0);
+    renderPass.draw(6, this.vertexCount, 0, 0);
     renderPass.end();
     this.device!.queue.submit([commandEncoder.finish()]);
   }

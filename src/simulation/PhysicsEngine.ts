@@ -101,7 +101,11 @@ export class PhysicsEngine {
       usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
     });
     const commandEncoder = this.device!.createCommandEncoder();
-    commandEncoder.copyBufferToBuffer(this.dataBuffer!, readBuffer);
+    commandEncoder.copyBufferToBuffer(
+      this.dataBuffer!,
+      readBuffer,
+      this.dataBuffer!.size
+    );
     this.device!.queue.submit([commandEncoder.finish()]);
     await readBuffer.mapAsync(GPUMapMode.READ);
     const arrayBuffer = readBuffer.getMappedRange();
