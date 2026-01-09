@@ -39,7 +39,7 @@ export class Renderer {
         entryPoint: "vs_main",
         buffers: [
           {
-            arrayStride: 4 * 4,
+            arrayStride: 4 * 8,
             attributes: [
               {
                 shaderLocation: 0,

@@ -1,4 +1,4 @@
-import { fetchShaderCode } from "../infrastructure/utils";
+import { fetchShaderCode, MyRandom } from "../infrastructure/utils";
 
 export class PhysicsEngine {
   private device: GPUDevice | null = null;
@@ -14,17 +14,37 @@ export class PhysicsEngine {
   }
 
   async initialize() {
-    // 1. 加载 Shader 代码
     const shaderCode = await fetchShaderCode(
       "src/simulation/shaders/compute.wgsl"
     );
     const shaderModule = this.device!.createShaderModule({
       code: shaderCode,
     });
-    // 2. 创建数据缓冲区 (Storage Buffer)
-    // 注意：添加 VERTEX 用途，让这个 Buffer 可以同时作为顶点数据
+
+    const particleData = new Float32Array(this.numElements * 8);
+    for (let i = 0; i < this.numElements; i++) {
+      const offset = i * 8;
+      const randomGen = MyRandom.randomInRangeGenerator(-1, 1);
+
+      // pos (vec4f) -> offset + 0, 1, 2, 3
+      particleData[offset + 0] = randomGen(); // x
+      particleData[offset + 1] = randomGen(); // y
+      particleData[offset + 2] = 0; // z
+      particleData[offset + 3] = 1; // w
+
+      // velocity (vec2f) -> offset + 4, 5
+      particleData[offset + 4] = randomGen() * 1; // vx
+      particleData[offset + 5] = 0; // vy
+
+      // mass (f32) -> offset + 6
+      particleData[offset + 6] = 1;
+
+      // padding (f32) -> offset + 7
+      particleData[offset + 7] = 0; // 占位符，WGSL 不会读取，但位置必须留着
+    }
+
     this.dataBuffer = this.device!.createBuffer({
-      size: this.numElements * 4 * 4,
+      size: particleData.byteLength,
       usage:
         GPUBufferUsage.STORAGE |
         GPUBufferUsage.COPY_SRC |
@@ -32,12 +52,8 @@ export class PhysicsEngine {
         GPUBufferUsage.VERTEX, // 👈 关键：允许作为 Vertex Buffer
       mappedAtCreation: true, // 允许初始化时写入数据
     });
-    // 初始化数据...
-    new Float32Array(this.dataBuffer.getMappedRange()).set(
-      new Float32Array(this.numElements * 4).map((_, i) =>
-        i % 4 === 3 ? 1 : Math.random() * 2 - 1
-      )
-    );
+
+    new Float32Array(this.dataBuffer.getMappedRange()).set(particleData);
     this.dataBuffer.unmap();
     // 3. 创建 Pipeline
     this.pipeline = this.device!.createComputePipeline({
@@ -81,15 +97,11 @@ export class PhysicsEngine {
   // 用于 Debug: 读取 GPU 数据回 CPU
   async debugGetData(): Promise<Float32Array> {
     const readBuffer = this.device!.createBuffer({
-      size: this.numElements * 4 * 4,
+      size: this.dataBuffer!.size,
       usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
     });
     const commandEncoder = this.device!.createCommandEncoder();
-    commandEncoder.copyBufferToBuffer(
-      this.dataBuffer!,
-      readBuffer,
-      this.numElements * 4 * 4
-    );
+    commandEncoder.copyBufferToBuffer(this.dataBuffer!, readBuffer);
     this.device!.queue.submit([commandEncoder.finish()]);
     await readBuffer.mapAsync(GPUMapMode.READ);
     const arrayBuffer = readBuffer.getMappedRange();

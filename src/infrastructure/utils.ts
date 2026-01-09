@@ -5,3 +5,12 @@ export async function fetchShaderCode(path: string): Promise<string> {
   }
   return await response.text();
 }
+
+export class MyRandom {
+  static randomInRangeGenerator(min: number, max: number): () => number {
+    return () => Math.random() * (max - min) + min;
+  }
+  static randomInRange(min: number, max: number): number {
+    return Math.random() * (max - min) + min;
+  }
+}
