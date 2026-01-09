@@ -22,17 +22,21 @@ export class PhysicsEngine {
       code: shaderCode,
     });
     // 2. 创建数据缓冲区 (Storage Buffer)
+    // 注意：添加 VERTEX 用途，让这个 Buffer 可以同时作为顶点数据
     this.dataBuffer = this.device!.createBuffer({
-      size: this.numElements * 4, // 4 bytes per float
+      size: this.numElements * 4 * 4,
       usage:
         GPUBufferUsage.STORAGE |
         GPUBufferUsage.COPY_SRC |
-        GPUBufferUsage.COPY_DST,
+        GPUBufferUsage.COPY_DST |
+        GPUBufferUsage.VERTEX, // 👈 关键：允许作为 Vertex Buffer
       mappedAtCreation: true, // 允许初始化时写入数据
     });
     // 初始化数据...
     new Float32Array(this.dataBuffer.getMappedRange()).set(
-      new Float32Array(this.numElements).map((_, i) => i)
+      new Float32Array(this.numElements * 4).map((_, i) =>
+        i % 4 === 3 ? 1 : Math.random() * 2 - 1
+      )
     );
     this.dataBuffer.unmap();
     // 3. 创建 Pipeline
@@ -59,25 +63,32 @@ export class PhysicsEngine {
     passEncoder.setPipeline(this.pipeline);
     passEncoder.setBindGroup(0, this.bindGroup);
     // 3. 调度工作组 (Dispatch)
-    // 如果我们有 1024 个元素，并在 Shader 里定义 workgroup_size(64)
-    // 我们需要多少个组？ -> 1024 / 64 = 16
     passEncoder.dispatchWorkgroups(Math.ceil(this.numElements / 64));
     passEncoder.end();
     // 4. 提交命令
     this.device!.queue.submit([commandEncoder.finish()]);
   }
 
+  // 暴露 Buffer 和顶点数量，供 Renderer 使用
+  getVertexBuffer(): GPUBuffer {
+    return this.dataBuffer!;
+  }
+
+  getVertexCount(): number {
+    return this.numElements;
+  }
+
   // 用于 Debug: 读取 GPU 数据回 CPU
   async debugGetData(): Promise<Float32Array> {
     const readBuffer = this.device!.createBuffer({
-      size: this.numElements * 4,
+      size: this.numElements * 4 * 4,
       usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
     });
     const commandEncoder = this.device!.createCommandEncoder();
     commandEncoder.copyBufferToBuffer(
       this.dataBuffer!,
       readBuffer,
-      this.numElements * 4
+      this.numElements * 4 * 4
     );
     this.device!.queue.submit([commandEncoder.finish()]);
     await readBuffer.mapAsync(GPUMapMode.READ);

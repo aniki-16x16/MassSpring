@@ -1,6 +1,7 @@
 import "./style.css";
 import { WebGPUContext } from "./infrastructure/WebGPUContext";
 import { PhysicsEngine } from "./simulation/PhysicsEngine";
+import { Renderer } from "./renderer/Renderer";
 
 const init = async () => {
   try {
@@ -13,8 +14,30 @@ const init = async () => {
   }
 };
 
-const gpuContext = (await init())!;
-const engine = new PhysicsEngine(gpuContext.device!);
-await engine.initialize();
-engine.run();
-console.log(await engine.debugGetData());
+const main = async () => {
+  try {
+    const gpuContext = (await init())!;
+    const engine = new PhysicsEngine(gpuContext.device!);
+    await engine.initialize();
+
+    const renderer = new Renderer(
+      gpuContext.device!,
+      gpuContext.context!,
+      navigator.gpu.getPreferredCanvasFormat()
+    );
+    await renderer.initialize(
+      engine.getVertexBuffer(),
+      engine.getVertexCount()
+    );
+
+    const renderLoop = () => {
+      engine.run();
+      renderer.render();
+      requestAnimationFrame(renderLoop);
+    };
+    renderLoop();
+  } catch (error) {
+    console.error("Main execution failed", error);
+  }
+};
+main();
