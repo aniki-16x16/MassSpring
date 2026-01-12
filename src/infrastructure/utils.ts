@@ -7,10 +7,16 @@ export async function fetchShaderCode(path: string): Promise<string> {
 }
 
 export class MyRandom {
-  static randomInRangeGenerator(min: number, max: number): () => number {
+  static randomGenerator(min: number, max: number): () => number {
     return () => Math.random() * (max - min) + min;
   }
-  static randomInRange(min: number, max: number): number {
-    return Math.random() * (max - min) + min;
+  static random(min: number, max: number): number {
+    return MyRandom.randomGenerator(min, max)();
+  }
+  static randomIntGenerator(min: number, max: number): () => number {
+    return () => Math.floor(Math.random() * (max - min)) + min;
+  }
+  static randomInt(min: number, max: number): number {
+    return MyRandom.randomIntGenerator(min, max)();
   }
 }

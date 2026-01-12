@@ -5,6 +5,7 @@ struct Particle {
 }
 
 @group(0) @binding(0) var<storage, read_write> data: array<Particle>;
+@group(0) @binding(1) var<storage, read_write> forces: array<vec2f>;
 
 const deltaTime = 0.01;
 
@@ -19,7 +20,7 @@ fn main(@builtin(global_invocation_id) global_id : vec3u) {
   var pos = data[index].pos;
   var vel = data[index].velocity;
   let mass = data[index].mass;
-  let force = computeForce();
+  let force = computeForce(index);
   let acceleration = force / mass;
 
   vel += acceleration * deltaTime;
@@ -37,6 +38,8 @@ fn main(@builtin(global_invocation_id) global_id : vec3u) {
   data[index].velocity = vel;
 }
 
-fn computeForce() -> vec2f {
-  return vec2f(0.0, -9.8);
+fn computeForce(index: u32) -> vec2f {
+  let force = forces[index];
+  forces[index] = vec2f(0.0, 0.0);
+  return force + vec2f(0.0, -9.8);
 }
