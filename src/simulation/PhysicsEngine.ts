@@ -9,10 +9,8 @@ export class PhysicsEngine {
     final: null,
     spring: null,
   };
-  private bindGroups: Record<PipelineKey, GPUBindGroup | null> = {
-    final: null,
-    spring: null,
-  };
+  private bindGroups: GPUBindGroup[] = [];
+  private pipelineLayout: GPUPipelineLayout | null = null;
   private dataBuffers: Record<BufferKey, GPUBuffer | null> = {
     particle: null,
     force: null,
@@ -90,50 +88,78 @@ export class PhysicsEngine {
     this.dataBuffers.spring!.unmap();
   }
 
-  async initializePipelineSpring() {
-    const shaderCode = await fetchShaderCode(
-      "src/simulation/shaders/compute_spring.wgsl"
-    );
-    const shaderModule = this.device!.createShaderModule({
-      code: shaderCode,
-    });
-    this.pipelines.spring = this.device!.createComputePipeline({
-      layout: "auto",
-      compute: {
-        module: shaderModule,
-        entryPoint: "main",
-      },
-    });
-    this.bindGroups.spring = this.device!.createBindGroup({
-      layout: this.pipelines.spring!.getBindGroupLayout(0),
+  private initializeBindGroup() {
+    const layout0 = this.device!.createBindGroupLayout({
       entries: [
-        { binding: 0, resource: { buffer: this.dataBuffers.particle! } },
-        { binding: 1, resource: { buffer: this.dataBuffers.force! } },
-        { binding: 2, resource: { buffer: this.dataBuffers.spring! } },
+        {
+          binding: 0,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: { type: "read-only-storage" },
+        },
       ],
     });
+    const layout1 = this.device!.createBindGroupLayout({
+      entries: [
+        {
+          binding: 0,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: { type: "storage" },
+        },
+        {
+          binding: 1,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: { type: "storage" },
+        },
+      ],
+    });
+    this.pipelineLayout = this.device!.createPipelineLayout({
+      bindGroupLayouts: [layout0, layout1],
+    });
+    const bindGroup0 = this.device!.createBindGroup({
+      layout: layout0,
+      entries: [
+        {
+          binding: 0,
+          resource: { buffer: this.dataBuffers.spring! },
+        },
+      ],
+    });
+    const bindGroup1 = this.device!.createBindGroup({
+      layout: layout1,
+      entries: [
+        {
+          binding: 0,
+          resource: { buffer: this.dataBuffers.particle! },
+        },
+        {
+          binding: 1,
+          resource: { buffer: this.dataBuffers.force! },
+        },
+      ],
+    });
+    this.bindGroups.push(bindGroup0, bindGroup1);
   }
 
-  async initializePiplineFinal() {
+  private async initializePipeline() {
     const shaderCode = await fetchShaderCode(
       "src/simulation/shaders/compute.wgsl"
     );
     const shaderModule = this.device!.createShaderModule({
       code: shaderCode,
     });
+    this.pipelines.spring = this.device!.createComputePipeline({
+      layout: this.pipelineLayout!,
+      compute: {
+        module: shaderModule,
+        entryPoint: "spring_main",
+      },
+    });
     this.pipelines.final = this.device!.createComputePipeline({
-      layout: "auto",
+      layout: this.pipelineLayout!,
       compute: {
         module: shaderModule,
         entryPoint: "main",
       },
-    });
-    this.bindGroups.final = this.device!.createBindGroup({
-      layout: this.pipelines.final!.getBindGroupLayout(0),
-      entries: [
-        { binding: 0, resource: { buffer: this.dataBuffers.particle! } },
-        { binding: 1, resource: { buffer: this.dataBuffers.force! } },
-      ],
     });
   }
 
@@ -141,8 +167,8 @@ export class PhysicsEngine {
     this.initializeParticleBuffer();
     this.initializeForceBuffer();
     this.initializeSpringBuffer();
-    await this.initializePipelineSpring();
-    await this.initializePiplineFinal();
+    this.initializeBindGroup();
+    await this.initializePipeline();
   }
 
   run() {
@@ -150,13 +176,15 @@ export class PhysicsEngine {
 
     const passSpring = commandEncoder.beginComputePass();
     passSpring.setPipeline(this.pipelines.spring!);
-    passSpring.setBindGroup(0, this.bindGroups.spring!);
+    passSpring.setBindGroup(0, this.bindGroups[0]);
+    passSpring.setBindGroup(1, this.bindGroups[1]);
     passSpring.dispatchWorkgroups(Math.ceil(this.numSprings / 64));
     passSpring.end();
 
     const passFinal = commandEncoder.beginComputePass();
     passFinal.setPipeline(this.pipelines.final!);
-    passFinal.setBindGroup(0, this.bindGroups.final!);
+    passFinal.setBindGroup(0, this.bindGroups[0]);
+    passFinal.setBindGroup(1, this.bindGroups[1]);
     passFinal.dispatchWorkgroups(Math.ceil(this.numParticles / 64));
     passFinal.end();
 
