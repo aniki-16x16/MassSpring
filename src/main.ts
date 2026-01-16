@@ -30,6 +30,8 @@ const main = async () => {
       engine.getVertexCount()
     );
 
+    renderer.updateAspectRatio(window.innerHeight / window.innerWidth);
+
     const renderLoop = () => {
       engine.run();
       renderer.render();

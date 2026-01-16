@@ -62,17 +62,15 @@ fn spring_main(@builtin(global_invocation_id) global_id : vec3u) {
   }
 
   let spring = springs[index];
-  let posA = data[spring.a].pos.xy;
-  let posB = data[spring.b].pos.xy;
+  let pos_a = data[spring.a].pos.xy;
+  let pos_b = data[spring.b].pos.xy;
 
-  let delta = posB - posA;
-  let current_length = length(delta);
+  let delta = pos_b - pos_a;
   let direction = normalize(delta);
 
-  let displacement = current_length - spring.rest_length;
-  let force_magnitude = spring.stiffness * displacement;
+  let displacement = length(delta) - spring.rest_length;
 
-  let force = force_magnitude * direction;
+  let force = spring.stiffness * displacement * direction;
 
   forces[spring.a] += force;
   forces[spring.b] -= force;

@@ -9,6 +9,8 @@ export class Renderer {
   private canvasFormat: GPUTextureFormat | null = null;
   private vertexBuffer: GPUBuffer | null = null;
   private vertexCount: number = 0;
+  private uniformBuffer: GPUBuffer | null = null;
+  private bindGroup: GPUBindGroup | null = null;
 
   constructor(
     device: GPUDevice,
@@ -31,8 +33,42 @@ export class Renderer {
       code: shaderCode,
     });
 
+    this.uniformBuffer = this.device!.createBuffer({
+      size: 4,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      mappedAtCreation: true,
+    });
+    new Float32Array(this.uniformBuffer.getMappedRange()).set([1.0]);
+    this.uniformBuffer.unmap();
+
+    const bindGroupLayout = this.device!.createBindGroupLayout({
+      entries: [
+        {
+          binding: 0,
+          visibility: GPUShaderStage.VERTEX,
+          buffer: {
+            type: "uniform",
+          },
+        },
+      ],
+    });
+    this.bindGroup = this.device!.createBindGroup({
+      layout: bindGroupLayout,
+      entries: [
+        {
+          binding: 0,
+          resource: {
+            buffer: this.uniformBuffer,
+          },
+        },
+      ],
+    });
+
+    const pipelineLayout = this.device!.createPipelineLayout({
+      bindGroupLayouts: [bindGroupLayout],
+    });
     this.pipeline = this.device!.createRenderPipeline({
-      layout: "auto",
+      layout: pipelineLayout,
       vertex: {
         module: shaderModule,
         entryPoint: "vs_main",
@@ -80,6 +116,14 @@ export class Renderer {
     this.vertexCount = vertexCount;
   }
 
+  updateAspectRatio(aspectRatio: number) {
+    this.device!.queue.writeBuffer(
+      this.uniformBuffer!,
+      0,
+      new Float32Array([aspectRatio]).buffer
+    );
+  }
+
   render() {
     if (!this.pipeline || !this.vertexBuffer) return;
 
@@ -98,6 +142,7 @@ export class Renderer {
       ],
     });
     renderPass.setPipeline(this.pipeline);
+    renderPass.setBindGroup(0, this.bindGroup!);
     renderPass.setVertexBuffer(0, this.vertexBuffer);
     renderPass.draw(6, this.vertexCount, 0, 0);
     renderPass.end();

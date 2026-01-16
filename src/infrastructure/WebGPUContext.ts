@@ -9,6 +9,13 @@ export class WebGPUContext {
     if (!canvas) {
       throw new Error(`Could not find canvas with id: ${canvasId}`);
     }
+    const dpr = window.devicePixelRatio || 1;
+
+    const clientWidth = canvas.clientWidth;
+    const clientHeight = canvas.clientHeight;
+
+    canvas.width = clientWidth * dpr;
+    canvas.height = clientHeight * dpr;
     this.canvas = canvas;
   }
 

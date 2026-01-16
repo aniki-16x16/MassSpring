@@ -8,6 +8,8 @@ struct VertexOutput {
   @location(0) uv: vec2f,
 };
 
+@group(0) @binding(0) var<uniform> aspect_ratio: f32;
+
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
   var out: VertexOutput;
@@ -24,7 +26,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
   let quad_pos = pos[in.vertex_index];
   let particle_radius = 0.01;
 
-  let final_pos = in.particle_pos.xy + quad_pos * particle_radius;
+  let final_pos = in.particle_pos.xy + quad_pos * particle_radius * vec2f(aspect_ratio, 1.0);
 
   out.clip_position = vec4f(final_pos, 0.0, 1.0);
   out.uv = quad_pos;
@@ -35,6 +37,5 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
   let dist = length(in.uv);
-  let color = smoothstep(1.0, 0.9, dist);
-  return vec4f(vec3f(color), 1.0);
+  return vec4f(vec3f(smoothstep(1.0, 0.98, dist)), 1.0);
 }

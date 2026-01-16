@@ -17,8 +17,8 @@ export class PhysicsEngine {
     spring: null,
   };
 
-  private numParticles = 16;
-  private numSprings = 8;
+  private numParticles = 32;
+  private numSprings = 16;
 
   constructor(device: GPUDevice) {
     this.device = device;
