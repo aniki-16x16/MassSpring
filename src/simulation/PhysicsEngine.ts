@@ -1,12 +1,12 @@
 import { fetchShaderCode, MyRandom } from "../infrastructure/utils";
 
 type BufferKey = "particle" | "force" | "spring";
-type PipelineKey = "final" | "spring";
+type PipelineKey = "particle" | "spring";
 
 export class PhysicsEngine {
   private device: GPUDevice | null = null;
   private pipelines: Record<PipelineKey, GPUComputePipeline | null> = {
-    final: null,
+    particle: null,
     spring: null,
   };
   private bindGroups: GPUBindGroup[] = [];
@@ -18,7 +18,7 @@ export class PhysicsEngine {
   };
 
   private numParticles = 32;
-  private numSprings = 16;
+  private numSprings = 8;
 
   constructor(device: GPUDevice) {
     this.device = device;
@@ -40,7 +40,7 @@ export class PhysicsEngine {
       // mass (f32) -> offset + 6
       particleData[offset + 6] = 1;
       // padding (f32) -> offset + 7
-      particleData[offset + 7] = 0; // 占位符，WGSL 不会读取，但位置必须留着
+      particleData[offset + 7] = 0; // padding
     }
 
     this.dataBuffers.particle = this.device!.createBuffer({
@@ -54,7 +54,7 @@ export class PhysicsEngine {
     });
 
     new Float32Array(this.dataBuffers.particle!.getMappedRange()).set(
-      particleData
+      particleData,
     );
     this.dataBuffers.particle!.unmap();
   }
@@ -71,20 +71,24 @@ export class PhysicsEngine {
   }
 
   private initializeSpringBuffer() {
-    const springData = new Float32Array(this.numSprings * 4);
-    for (let i = 0; i < this.numSprings; i++) {
-      const offset = i * 4;
-      springData[offset + 0] = MyRandom.randomInt(0, this.numParticles);
-      springData[offset + 1] = MyRandom.randomInt(0, this.numParticles);
-      springData[offset + 2] = 0.1;
-      springData[offset + 3] = 10;
-    }
     this.dataBuffers.spring = this.device!.createBuffer({
-      size: springData.byteLength,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      size: this.numSprings * 4 * 4,
+      usage:
+        GPUBufferUsage.STORAGE |
+        GPUBufferUsage.COPY_DST |
+        GPUBufferUsage.VERTEX,
       mappedAtCreation: true,
     });
-    new Float32Array(this.dataBuffers.spring!.getMappedRange()).set(springData);
+    const springData = this.dataBuffers.spring!.getMappedRange();
+    for (let i = 0; i < this.numSprings; i++) {
+      const byteOffset = i * 4 * 4;
+      const floatView = new Float32Array(springData, byteOffset, 4);
+      const uintView = new Uint32Array(springData, byteOffset, 4);
+      uintView[0] = MyRandom.randomInt(0, this.numParticles);
+      uintView[1] = MyRandom.randomInt(0, this.numParticles);
+      floatView[2] = 0.1;
+      floatView[3] = 10;
+    }
     this.dataBuffers.spring!.unmap();
   }
 
@@ -141,9 +145,7 @@ export class PhysicsEngine {
   }
 
   private async initializePipeline() {
-    const shaderCode = await fetchShaderCode(
-      "src/simulation/shaders/compute.wgsl"
-    );
+    const shaderCode = await fetchShaderCode("src/simulation/compute.wgsl");
     const shaderModule = this.device!.createShaderModule({
       code: shaderCode,
     });
@@ -154,7 +156,7 @@ export class PhysicsEngine {
         entryPoint: "spring_main",
       },
     });
-    this.pipelines.final = this.device!.createComputePipeline({
+    this.pipelines.particle = this.device!.createComputePipeline({
       layout: this.pipelineLayout!,
       compute: {
         module: shaderModule,
@@ -181,22 +183,25 @@ export class PhysicsEngine {
     passSpring.dispatchWorkgroups(Math.ceil(this.numSprings / 64));
     passSpring.end();
 
-    const passFinal = commandEncoder.beginComputePass();
-    passFinal.setPipeline(this.pipelines.final!);
-    passFinal.setBindGroup(0, this.bindGroups[0]);
-    passFinal.setBindGroup(1, this.bindGroups[1]);
-    passFinal.dispatchWorkgroups(Math.ceil(this.numParticles / 64));
-    passFinal.end();
-
+    const passParticle = commandEncoder.beginComputePass();
+    passParticle.setPipeline(this.pipelines.particle!);
+    passParticle.setBindGroup(0, this.bindGroups[0]);
+    passParticle.setBindGroup(1, this.bindGroups[1]);
+    passParticle.dispatchWorkgroups(Math.ceil(this.numParticles / 64));
+    passParticle.end();
     this.device!.queue.submit([commandEncoder.finish()]);
   }
 
-  // 暴露 Buffer 和顶点数量，供 Renderer 使用
   getVertexBuffer(): GPUBuffer {
     return this.dataBuffers.particle!;
   }
-
   getVertexCount(): number {
     return this.numParticles;
+  }
+  getSpringBuffer(): GPUBuffer {
+    return this.dataBuffers.spring!;
+  }
+  getSpringCount(): number {
+    return this.numSprings;
   }
 }

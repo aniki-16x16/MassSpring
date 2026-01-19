@@ -23,14 +23,16 @@ const main = async () => {
     const renderer = new Renderer(
       gpuContext.device!,
       gpuContext.context!,
-      navigator.gpu.getPreferredCanvasFormat()
+      navigator.gpu.getPreferredCanvasFormat(),
     );
     await renderer.initialize(
       engine.getVertexBuffer(),
-      engine.getVertexCount()
+      engine.getVertexCount(),
+      engine.getSpringBuffer(),
+      engine.getSpringCount(),
     );
 
-    renderer.updateAspectRatio(window.innerHeight / window.innerWidth);
+    renderer.updateAspectRatio(window.innerWidth / window.innerHeight);
 
     const renderLoop = () => {
       engine.run();

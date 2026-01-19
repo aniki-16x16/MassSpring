@@ -2,6 +2,7 @@ struct Particle {
   pos: vec4f,
   velocity: vec2f,
   mass: f32,
+  padding: f32,
 }
 
 struct Spring {
