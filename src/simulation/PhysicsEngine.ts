@@ -1,4 +1,4 @@
-import { fetchShaderCode, MyRandom } from "../infrastructure/utils";
+import { fetchShaderCode } from "../infrastructure/utils";
 
 type BufferKey = "particle" | "force" | "spring";
 type PipelineKey = "particle" | "spring";
@@ -17,50 +17,47 @@ export class PhysicsEngine {
     spring: null,
   };
 
-  private numParticles = 32;
-  private numSprings = 8;
+  private numParticles = 12;
+  private numSprings = 11;
 
   constructor(device: GPUDevice) {
     this.device = device;
   }
 
   private initializeParticleBuffer() {
-    const particleData = new Float32Array(this.numParticles * 8);
-    for (let i = 0; i < this.numParticles; i++) {
-      const offset = i * 8;
-      const randomGen = MyRandom.randomGenerator(-1, 1);
-      // pos (vec4f) -> offset + 0, 1, 2, 3
-      particleData[offset + 0] = randomGen(); // x
-      particleData[offset + 1] = randomGen(); // y
-      particleData[offset + 2] = 0; // z
-      particleData[offset + 3] = 1; // w
-      // velocity (vec2f) -> offset + 4, 5
-      particleData[offset + 4] = randomGen() * 1; // vx
-      particleData[offset + 5] = 0; // vy
-      // mass (f32) -> offset + 6
-      particleData[offset + 6] = 1;
-      // padding (f32) -> offset + 7
-      particleData[offset + 7] = 0; // padding
-    }
-
     this.dataBuffers.particle = this.device!.createBuffer({
-      size: particleData.byteLength,
+      size: this.numParticles * 8 * 4,
       usage:
         GPUBufferUsage.STORAGE |
         GPUBufferUsage.COPY_SRC |
-        GPUBufferUsage.COPY_DST |
-        GPUBufferUsage.VERTEX, // 👈 关键：允许作为 Vertex Buffer
-      mappedAtCreation: true, // 允许初始化时写入数据
+        GPUBufferUsage.COPY_DST,
+      mappedAtCreation: true,
     });
+    const particleData = this.dataBuffers.particle!.getMappedRange();
 
-    new Float32Array(this.dataBuffers.particle!.getMappedRange()).set(
-      particleData,
-    );
+    for (let i = 0; i < this.numParticles; i++) {
+      const byteOffset = i * 8 * 4;
+      const floatView = new Float32Array(particleData, byteOffset, 7);
+      const uintView = new Uint32Array(particleData, byteOffset + 7 * 4, 1);
+      // pos (vec4f) -> offset + 0, 1, 2, 3
+      floatView[0] = -1 + (2 / (this.numParticles - 1)) * i;
+      floatView[1] = 0.8;
+      floatView[2] = 0;
+      floatView[3] = 1;
+      // velocity (vec2f) -> offset + 4, 5
+      floatView[4] = 0;
+      floatView[5] = 0;
+      // mass (f32) -> offset + 6
+      floatView[6] = 1;
+      // is_static (u32) -> offset + 7
+      uintView[0] = [0, this.numParticles - 1].includes(i) ? 1 : 0;
+    }
+
     this.dataBuffers.particle!.unmap();
   }
 
   private initializeForceBuffer() {
-    const forceData = new Float32Array(this.numParticles * 4);
+    const forceData = new Float32Array(this.numParticles * 2);
     this.dataBuffers.force = this.device!.createBuffer({
       size: forceData.byteLength,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
@@ -73,22 +70,23 @@ export class PhysicsEngine {
   private initializeSpringBuffer() {
     this.dataBuffers.spring = this.device!.createBuffer({
       size: this.numSprings * 4 * 4,
-      usage:
-        GPUBufferUsage.STORAGE |
-        GPUBufferUsage.COPY_DST |
-        GPUBufferUsage.VERTEX,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       mappedAtCreation: true,
     });
     const springData = this.dataBuffers.spring!.getMappedRange();
+
     for (let i = 0; i < this.numSprings; i++) {
       const byteOffset = i * 4 * 4;
-      const floatView = new Float32Array(springData, byteOffset, 4);
-      const uintView = new Uint32Array(springData, byteOffset, 4);
-      uintView[0] = MyRandom.randomInt(0, this.numParticles);
-      uintView[1] = MyRandom.randomInt(0, this.numParticles);
-      floatView[2] = 0.1;
-      floatView[3] = 10;
+      const uintView = new Uint32Array(springData, byteOffset, 2);
+      const floatView = new Float32Array(springData, byteOffset + 2 * 4, 2);
+      uintView[0] = i;
+      uintView[1] = i + 1;
+      // rest_length
+      floatView[0] = 0.1;
+      // stiffness
+      floatView[1] = 600;
     }
+
     this.dataBuffers.spring!.unmap();
   }
 
@@ -189,6 +187,7 @@ export class PhysicsEngine {
     passParticle.setBindGroup(1, this.bindGroups[1]);
     passParticle.dispatchWorkgroups(Math.ceil(this.numParticles / 64));
     passParticle.end();
+
     this.device!.queue.submit([commandEncoder.finish()]);
   }
 

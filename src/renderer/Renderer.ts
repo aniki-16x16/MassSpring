@@ -7,8 +7,8 @@ export class Renderer {
   private context: GPUCanvasContext | null = null;
   private canvasFormat: GPUTextureFormat | null = null;
 
-  private vertexBuffer: GPUBuffer | null = null;
-  private vertexCount: number = 0;
+  private particleBuffer: GPUBuffer | null = null;
+  private particleCount: number = 0;
   private springBuffer: GPUBuffer | null = null;
   private springCount: number = 0;
   private uniformBuffer: GPUBuffer | null = null;
@@ -46,8 +46,8 @@ export class Renderer {
     this.uniformBuffer.unmap();
   }
 
-  private initializeSpringBindGroup() {
-    const uniformBindGroupLayout = this.device!.createBindGroupLayout({
+  private initializeBindGroups() {
+    const layout0 = this.device!.createBindGroupLayout({
       entries: [
         {
           binding: 0,
@@ -56,10 +56,17 @@ export class Renderer {
             type: "uniform",
           },
         },
+        {
+          binding: 1,
+          visibility: GPUShaderStage.VERTEX,
+          buffer: {
+            type: "read-only-storage",
+          },
+        },
       ],
     });
-    const uniformBindGroup = this.device!.createBindGroup({
-      layout: uniformBindGroupLayout,
+    const group0 = this.device!.createBindGroup({
+      layout: layout0,
       entries: [
         {
           binding: 0,
@@ -67,10 +74,16 @@ export class Renderer {
             buffer: this.uniformBuffer!,
           },
         },
+        {
+          binding: 1,
+          resource: {
+            buffer: this.springBuffer!,
+          },
+        },
       ],
     });
 
-    const storageBindGroupLayout = this.device!.createBindGroupLayout({
+    const layout1 = this.device!.createBindGroupLayout({
       entries: [
         {
           binding: 0,
@@ -81,53 +94,26 @@ export class Renderer {
         },
       ],
     });
-    const storageBindGroup = this.device!.createBindGroup({
-      layout: storageBindGroupLayout,
+    const group1 = this.device!.createBindGroup({
+      layout: layout1,
       entries: [
         {
           binding: 0,
           resource: {
-            buffer: this.vertexBuffer!,
+            buffer: this.particleBuffer!,
           },
         },
       ],
     });
 
-    this.bindGroups.spring = [uniformBindGroup, storageBindGroup];
-
-    this.pipelineLayouts.spring = this.device!.createPipelineLayout({
-      bindGroupLayouts: [uniformBindGroupLayout, storageBindGroupLayout],
-    });
-  }
-
-  private initializeParticleBindGroup() {
-    const bindGroupLayout = this.device!.createBindGroupLayout({
-      entries: [
-        {
-          binding: 0,
-          visibility: GPUShaderStage.VERTEX,
-          buffer: {
-            type: "uniform",
-          },
-        },
-      ],
-    });
-    this.bindGroups.particle = [
-      this.device!.createBindGroup({
-        layout: bindGroupLayout,
-        entries: [
-          {
-            binding: 0,
-            resource: {
-              buffer: this.uniformBuffer!,
-            },
-          },
-        ],
-      }),
-    ];
+    this.bindGroups.particle = [group0, group1];
+    this.bindGroups.spring = [group0, group1];
 
     this.pipelineLayouts.particle = this.device!.createPipelineLayout({
-      bindGroupLayouts: [bindGroupLayout],
+      bindGroupLayouts: [layout0, layout1],
+    });
+    this.pipelineLayouts.spring = this.device!.createPipelineLayout({
+      bindGroupLayouts: [layout0, layout1],
     });
   }
 
@@ -142,19 +128,7 @@ export class Renderer {
       vertex: {
         module: shaderModule,
         entryPoint: "vs_main",
-        buffers: [
-          {
-            arrayStride: 8 * 4,
-            stepMode: "instance",
-            attributes: [
-              {
-                shaderLocation: 0,
-                offset: 0,
-                format: "float32x4",
-              },
-            ],
-          },
-        ],
+        buffers: [],
       },
       fragment: {
         module: shaderModule,
@@ -194,19 +168,7 @@ export class Renderer {
       vertex: {
         module: shaderModule,
         entryPoint: "vs_main",
-        buffers: [
-          {
-            arrayStride: 4 * 4,
-            stepMode: "instance",
-            attributes: [
-              {
-                shaderLocation: 0,
-                offset: 0,
-                format: "uint32x2",
-              },
-            ],
-          },
-        ],
+        buffers: [],
       },
       fragment: {
         module: shaderModule,
@@ -236,18 +198,17 @@ export class Renderer {
   }
 
   async initialize(
-    vertexBuffer: GPUBuffer,
-    vertexCount: number,
+    particleBuffer: GPUBuffer,
+    particleCount: number,
     springBuffer: GPUBuffer,
     springCount: number,
   ): Promise<void> {
-    this.vertexBuffer = vertexBuffer;
-    this.vertexCount = vertexCount;
+    this.particleBuffer = particleBuffer;
+    this.particleCount = particleCount;
     this.springBuffer = springBuffer;
     this.springCount = springCount;
     this.initializeUniformBuffer();
-    this.initializeParticleBindGroup();
-    this.initializeSpringBindGroup();
+    this.initializeBindGroups();
     await this.initializeParticlePipeline();
     await this.initializeSpringPipeline();
   }
@@ -275,16 +236,15 @@ export class Renderer {
       ],
     });
 
-    renderPass.setPipeline(this.pipelines.particle!);
-    renderPass.setBindGroup(0, this.bindGroups.particle[0]);
-    renderPass.setVertexBuffer(0, this.vertexBuffer);
-    renderPass.draw(6, this.vertexCount, 0, 0);
-
     renderPass.setPipeline(this.pipelines.spring!);
     renderPass.setBindGroup(0, this.bindGroups.spring[0]);
     renderPass.setBindGroup(1, this.bindGroups.spring[1]);
-    renderPass.setVertexBuffer(0, this.springBuffer!);
     renderPass.draw(6, this.springCount, 0, 0);
+
+    renderPass.setPipeline(this.pipelines.particle!);
+    renderPass.setBindGroup(0, this.bindGroups.particle[0]);
+    renderPass.setBindGroup(1, this.bindGroups.particle[1]);
+    renderPass.draw(6, this.particleCount, 0, 0);
 
     renderPass.end();
     this.device!.queue.submit([commandEncoder.finish()]);

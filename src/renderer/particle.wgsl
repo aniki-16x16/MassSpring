@@ -1,6 +1,14 @@
+
+struct Particle {
+  pos: vec4f,
+  velocity: vec2f,
+  mass: f32,
+  is_static: u32,
+}
+
 struct VertexInput {
-  @location(0) particle_pos: vec4f,
   @builtin(vertex_index) vertex_index: u32,
+  @builtin(instance_index) instance_index: u32,
 };
 
 struct VertexOutput {
@@ -9,12 +17,15 @@ struct VertexOutput {
 };
 
 @group(0) @binding(0) var<uniform> aspect_ratio: f32;
+@group(1) @binding(0) var<storage, read> particles: array<Particle>;
 
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
   var out: VertexOutput;
 
-  var pos = array<vec2f, 6>(
+  let particle_radius = 0.01;
+  let particle = particles[in.instance_index];
+  let pos = array<vec2f, 6>(
     vec2f(-1.0, -1.0),
     vec2f( 1.0, -1.0),
     vec2f( 1.0,  1.0),
@@ -22,15 +33,11 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     vec2f( 1.0,  1.0),
     vec2f(-1.0,  1.0)
   );
-
   let quad_pos = pos[in.vertex_index];
-  let particle_radius = 0.01;
-
-  let final_pos = (in.particle_pos.xy + quad_pos * particle_radius) * vec2f(aspect_ratio, 1.0);
+  let final_pos = (particle.pos.xy + quad_pos * particle_radius) * vec2f(aspect_ratio, 1.0);
 
   out.clip_position = vec4f(final_pos, 0.0, 1.0);
   out.uv = quad_pos;
-
   return out;
 }
 
