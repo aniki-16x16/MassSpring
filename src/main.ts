@@ -32,7 +32,21 @@ const main = async () => {
       engine.getSpringCount(),
     );
 
-    renderer.updateAspectRatio(window.innerWidth / window.innerHeight);
+    const aspectRatio = window.innerWidth / window.innerHeight;
+    renderer.updateAspectRatio(aspectRatio);
+
+    gpuContext.canvas.addEventListener("mousemove", (event) => {
+      const rect = gpuContext.canvas.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
+      engine.updateMousePosition(x * aspectRatio, y);
+    });
+    gpuContext.canvas.addEventListener("mousedown", () => {
+      engine.updateMousePressed(true);
+    });
+    gpuContext.canvas.addEventListener("mouseup", () => {
+      engine.updateMousePressed(false);
+    });
 
     const renderLoop = () => {
       engine.run();

@@ -12,12 +12,22 @@ struct Spring {
   stiffness: f32,
 }
 
+struct Mouse {
+  pos: vec2f,
+  is_pressed: u32,
+  padding: f32,
+};
+
 @group(0) @binding(0) var<storage, read> springs: array<Spring>;
 
 @group(1) @binding(0) var<storage, read_write> data: array<Particle>;
 @group(1) @binding(1) var<storage, read_write> forces: array<vec2f>;
+@group(1) @binding(2) var<uniform> mouse: Mouse;
 
-const deltaTime = 0.008;
+const DELTA_TIME = 0.008;
+
+const MOUSE_THRESHOLD = 0.1;
+const MOUSE_FORCE = 100.0;
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id : vec3u) {
@@ -30,15 +40,16 @@ fn main(@builtin(global_invocation_id) global_id : vec3u) {
   var pos = data[index].pos;
   var vel = data[index].velocity;
   let mass = data[index].mass;
-  let force = computeForce(index);
+  var force = computeForce(index);
+  force += computeMouseForce(pos.xy);
   if (data[index].is_static == 1u) {
     return;
   }
   let acceleration = force / mass;
 
-  vel += acceleration * deltaTime;
-  pos.x += vel.x * deltaTime;
-  pos.y += vel.y * deltaTime;
+  vel += acceleration * DELTA_TIME;
+  pos.x += vel.x * DELTA_TIME;
+  pos.y += vel.y * DELTA_TIME;
   if (pos.y < -1.0) {
     pos.y = -1.0;
     vel.y = -vel.y * 0.9;
@@ -55,6 +66,14 @@ fn computeForce(index: u32) -> vec2f {
   let force = forces[index];
   forces[index] = vec2f(0.0, 0.0);
   return force + vec2f(0.0, -9.8);
+}
+
+fn computeMouseForce(pos: vec2f) -> vec2f {
+  let dir = normalize(pos - mouse.pos.xy);
+  let dist = distance(pos, mouse.pos.xy);
+  let force = select(vec2f(0.0, 0.0), dir * MOUSE_FORCE, dist < MOUSE_THRESHOLD);
+  let flip = select(1.0, -1.0, mouse.is_pressed == 1u);
+  return force * flip;
 }
 
 @compute @workgroup_size(64)

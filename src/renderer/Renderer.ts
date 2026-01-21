@@ -217,7 +217,7 @@ export class Renderer {
     this.device!.queue.writeBuffer(
       this.uniformBuffer!,
       0,
-      new Float32Array([1.0 / aspectRatio]).buffer,
+      new Float32Array([aspectRatio]).buffer,
     );
   }
 

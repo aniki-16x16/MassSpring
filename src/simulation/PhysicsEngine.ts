@@ -1,6 +1,6 @@
 import { fetchShaderCode } from "../infrastructure/utils";
 
-type BufferKey = "particle" | "force" | "spring";
+type BufferKey = "particle" | "force" | "spring" | "mouse";
 type PipelineKey = "particle" | "spring";
 
 export class PhysicsEngine {
@@ -15,6 +15,7 @@ export class PhysicsEngine {
     particle: null,
     force: null,
     spring: null,
+    mouse: null,
   };
 
   private numParticles = 12;
@@ -22,6 +23,24 @@ export class PhysicsEngine {
 
   constructor(device: GPUDevice) {
     this.device = device;
+  }
+
+  private initializeForceBuffer() {
+    const forceData = new Float32Array(this.numParticles * 2);
+    this.dataBuffers.force = this.device!.createBuffer({
+      size: forceData.byteLength,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      mappedAtCreation: true,
+    });
+    new Float32Array(this.dataBuffers.force!.getMappedRange()).set(forceData);
+    this.dataBuffers.force!.unmap();
+  }
+
+  private initializeMouseBuffer() {
+    this.dataBuffers.mouse = this.device!.createBuffer({
+      size: 4 * 4,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
   }
 
   private initializeParticleBuffer() {
@@ -56,17 +75,6 @@ export class PhysicsEngine {
     this.dataBuffers.particle!.unmap();
   }
 
-  private initializeForceBuffer() {
-    const forceData = new Float32Array(this.numParticles * 2);
-    this.dataBuffers.force = this.device!.createBuffer({
-      size: forceData.byteLength,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-      mappedAtCreation: true,
-    });
-    new Float32Array(this.dataBuffers.force!.getMappedRange()).set(forceData);
-    this.dataBuffers.force!.unmap();
-  }
-
   private initializeSpringBuffer() {
     this.dataBuffers.spring = this.device!.createBuffer({
       size: this.numSprings * 4 * 4,
@@ -90,6 +98,13 @@ export class PhysicsEngine {
     this.dataBuffers.spring!.unmap();
   }
 
+  private initializeBuffers() {
+    this.initializeParticleBuffer();
+    this.initializeForceBuffer();
+    this.initializeMouseBuffer();
+    this.initializeSpringBuffer();
+  }
+
   private initializeBindGroup() {
     const layout0 = this.device!.createBindGroupLayout({
       entries: [
@@ -111,6 +126,11 @@ export class PhysicsEngine {
           binding: 1,
           visibility: GPUShaderStage.COMPUTE,
           buffer: { type: "storage" },
+        },
+        {
+          binding: 2,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: { type: "uniform" },
         },
       ],
     });
@@ -136,6 +156,10 @@ export class PhysicsEngine {
         {
           binding: 1,
           resource: { buffer: this.dataBuffers.force! },
+        },
+        {
+          binding: 2,
+          resource: { buffer: this.dataBuffers.mouse! },
         },
       ],
     });
@@ -164,11 +188,26 @@ export class PhysicsEngine {
   }
 
   async initialize(): Promise<void> {
-    this.initializeParticleBuffer();
-    this.initializeForceBuffer();
-    this.initializeSpringBuffer();
+    this.initializeBuffers();
     this.initializeBindGroup();
     await this.initializePipeline();
+  }
+
+  updateMousePosition(x: number, y: number) {
+    const mouseData = new Float32Array([x, y]);
+    this.device!.queue.writeBuffer(
+      this.dataBuffers.mouse!,
+      0,
+      mouseData.buffer,
+    );
+  }
+  updateMousePressed(pressed: boolean) {
+    const pressedData = new Uint32Array([pressed ? 1 : 0]);
+    this.device!.queue.writeBuffer(
+      this.dataBuffers.mouse!,
+      2 * 4,
+      pressedData.buffer,
+    );
   }
 
   run() {

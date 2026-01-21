@@ -79,30 +79,45 @@ _任务_:
 2. 编写胡克定律 (Hooke's Law) 的计算逻辑。
 3. 解决并发写入问题（Scatter vs Gather 模式）。
 
-### Phase 6: 高级优化 (Optimization)
+### Phase 6: 环境交互与控制 (Interaction & Environment)
 
-_目标_: 提升规模和帧率。
+_目标_: 增加系统丰富度，引入外部交互和非均匀环境。
 _任务_:
 
-1. 使用 Shared Memory 优化。
-2. 空间划分（Grid/BVH）处理质点间碰撞。
+1. **鼠标交互**: 将鼠标位置传入 Compute Shader，实现鼠标对质点的拖拽或斥力（SDF Force）。
+2. **障碍物碰撞**: 引入简单的几何体（如球体、地面），使用 SDF (Signed Distance Field) 处理质点与静态物体的碰撞与摩擦。
+3. **参数控制**: 将重力、弹簧系数、阻尼等物理参数暴露给 UI，实时调整模拟行为。
+
+### Phase 7: 高级物理机制 (Advanced Physics)
+
+_目标_: 实现更复杂的物理行为和质点间互动。
+_任务_:
+
+1. **弹簧断裂 (Tearing)**: 检测弹簧拉伸长度，超过阈值时从数据结构中移除或标记失效，模拟布料撕裂。
+2. **质点间碰撞 (Self-Collision)**: 引入空间网格 (Uniform Grid) 或 空间哈希 (Spatial Hash) 来处理质点之间的体积排斥，防止穿模或模拟流体堆积效果。
+
+### Phase 8: 视觉增强与性能优化 (Visuals & Optimization)
+
+_目标_: 让画面更像“这一世代”的产物，并提升性能。
+_任务_:
+
+1. **实例化渲染 (Instancing)**: 使用 Render Pipeline 渲染 3D 模型（如球体）作为质点，而非单像素点。
+2. **视觉美化**: 加入简单的光照、阴影或基于速度/张力的颜色映射。
+3. **性能优化**: 使用 Shared Memory 优化 Compute Shader，尝试 Indirect Dispatch。
 
 ---
 
 ## 5. 当前任务
 
-学习 **Phase 3: 渲染管线与互操作**。
+进行 **Phase 6: 环境交互与控制**。
+重点在于设计如何将鼠标信息和障碍物数据传递给 Compute Shader，并计算碰撞响应。
 
 ---
 
 ## 6. 完成进度
 
 ✅ **Phase 1**: 完成。WebGPU 初始化，Device 和 Context 已就位。
-
-✅ **Phase 2**: 完成。Compute Pipeline 已实现，能成功计算并从 GPU 回读数据。
-
-✅ **Phase 3**: 完成。渲染管线已实现，质点动画已工作。
-
-✅ **Phase 4**: 完成。质点运动（积分与碰撞）已实现。
-
-🚀 **Phase 5**: 进行中。现在要引入弹簧约束，让质点间相互作用。
+✅ **Phase 2**: 完成。计算管线基础，Storage Buffer 与 Compute Shader 跑通。
+✅ **Phase 3**: 完成。渲染管线，实现点云渲染。
+✅ **Phase 4**: 完成。质点运动积分与边界处理。
+✅ **Phase 5**: 完成。弹簧约束与胡克定律实现（含基础固定约束）。

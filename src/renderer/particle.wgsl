@@ -1,4 +1,3 @@
-
 struct Particle {
   pos: vec4f,
   velocity: vec2f,
@@ -19,22 +18,23 @@ struct VertexOutput {
 @group(0) @binding(0) var<uniform> aspect_ratio: f32;
 @group(1) @binding(0) var<storage, read> particles: array<Particle>;
 
+const GRID = array<vec2f, 6>(
+  vec2f(-1.0, -1.0),
+  vec2f( 1.0, -1.0),
+  vec2f( 1.0,  1.0),
+  vec2f(-1.0, -1.0),
+  vec2f( 1.0,  1.0),
+  vec2f(-1.0,  1.0)
+);
+const RADIUS = 0.01;
+
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
   var out: VertexOutput;
 
-  let particle_radius = 0.01;
   let particle = particles[in.instance_index];
-  let pos = array<vec2f, 6>(
-    vec2f(-1.0, -1.0),
-    vec2f( 1.0, -1.0),
-    vec2f( 1.0,  1.0),
-    vec2f(-1.0, -1.0),
-    vec2f( 1.0,  1.0),
-    vec2f(-1.0,  1.0)
-  );
-  let quad_pos = pos[in.vertex_index];
-  let final_pos = (particle.pos.xy + quad_pos * particle_radius) * vec2f(aspect_ratio, 1.0);
+  let quad_pos = GRID[in.vertex_index];
+  let final_pos = (particle.pos.xy + quad_pos * RADIUS) * vec2f(1.0 / aspect_ratio, 1.0);
 
   out.clip_position = vec4f(final_pos, 0.0, 1.0);
   out.uv = quad_pos;
