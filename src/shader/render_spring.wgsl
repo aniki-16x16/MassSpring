@@ -1,16 +1,4 @@
-struct Particle {
-  pos: vec4f,
-  velocity: vec2f,
-  mass: f32,
-  padding: f32,
-}
-
-struct Spring {
-  a: u32,
-  b: u32,
-  stiffness: f32,
-  rest_length: f32,
-}
+@import './shared/types.wgsl';
 
 struct VertexInput {
   @builtin(vertex_index) vertex_index: u32,
@@ -53,7 +41,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
   let final_pos = (select(pos_a, pos_b, quad_pos.x > 0.0) + quad_pos.y * spring_perp * RADIUS) * vec2f(1.0 / aspect_ratio, 1.0);
 
   out.clip_position = vec4f(final_pos, 0.0, 1.0);
-  out.factor = max(spring_len / spring.stiffness, spring.stiffness / spring_len);
+  out.factor = max(spring_len / spring.rest_length, spring.rest_length / spring_len);
   return out;
 }
 

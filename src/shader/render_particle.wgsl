@@ -1,9 +1,4 @@
-struct Particle {
-  pos: vec4f,
-  velocity: vec2f,
-  mass: f32,
-  is_static: u32,
-}
+@import './shared/types.wgsl';
 
 struct VertexInput {
   @builtin(vertex_index) vertex_index: u32,

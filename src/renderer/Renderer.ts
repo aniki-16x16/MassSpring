@@ -73,7 +73,7 @@ export class Renderer {
   }
 
   private async initializeParticlePipeline(particleBuffer: GPUBuffer) {
-    const shaderCode = await fetchShaderCode("src/renderer/particle.wgsl");
+    const shaderCode = await fetchShaderCode("src/shader/render_particle.wgsl");
     const shaderModule = this.device!.createShaderModule({
       code: shaderCode,
     });
@@ -147,7 +147,7 @@ export class Renderer {
     springBuffer: GPUBuffer,
     particleBuffer: GPUBuffer,
   ) {
-    const shaderCode = await fetchShaderCode("src/renderer/spring.wgsl");
+    const shaderCode = await fetchShaderCode("src/shader/render_spring.wgsl");
     const shaderModule = this.device!.createShaderModule({
       code: shaderCode,
     });
@@ -231,7 +231,7 @@ export class Renderer {
   }
 
   private async initializeShapePipeline(shapeBuffer: GPUBuffer) {
-    const shaderCode = await fetchShaderCode("src/renderer/shape.wgsl");
+    const shaderCode = await fetchShaderCode("src/shader/render_shape.wgsl");
     const shaderModule = this.device!.createShaderModule({
       code: shaderCode,
     });

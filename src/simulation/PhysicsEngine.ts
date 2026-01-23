@@ -207,7 +207,7 @@ export class PhysicsEngine {
   }
 
   private async initializePipeline() {
-    const shaderCode = await fetchShaderCode("src/simulation/compute.wgsl");
+    const shaderCode = await fetchShaderCode("src/shader/compute.wgsl");
     const shaderModule = this.device!.createShaderModule({
       code: shaderCode,
     });

@@ -1,3 +1,6 @@
+@import './shared/types.wgsl';
+@import './shared/math.wgsl';
+
 struct VertexInput {
   @builtin(vertex_index) vertex_index: u32,
   @builtin(instance_index) instance_index: u32,
@@ -8,13 +11,6 @@ struct VertexOutput {
   @location(0) uv: vec2f,
   @location(1) @interpolate(flat) shape_type: u32,
 };
-
-struct Shape {
-  params: vec4f,
-  pos: vec2f,
-  rotation: f32,
-  shape_type: u32,
-}
 
 @group(0) @binding(0) var<uniform> aspect_ratio: f32;
 @group(1) @binding(0) var<storage, read> shapes: array<Shape>;
@@ -77,11 +73,4 @@ fn get_shape_mask(in: VertexOutput) -> f32 {
       return 0.0;
     }
   }
-}
-
-fn rotate(point: vec2f, angle: f32) -> vec2f {
-  return vec2f(
-    point.x * cos(angle) - point.y * sin(angle),
-    point.x * sin(angle) + point.y * cos(angle)
-  );
 }

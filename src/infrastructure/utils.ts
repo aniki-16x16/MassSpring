@@ -1,9 +1,41 @@
+// 缓存已加载的 shader 文件
+const shaderCache = new Map<string, string>();
+
 export async function fetchShaderCode(path: string): Promise<string> {
+  // 检查缓存
+  if (shaderCache.has(path)) {
+    return shaderCache.get(path)!;
+  }
+
   const response = await fetch(path);
   if (!response.ok) {
     throw new Error(`Failed to load shader code from ${path}`);
   }
-  return await response.text();
+  let code = await response.text();
+
+  // 处理 @import 指令
+  const importRegex = /@import\s+["']([^"']+)["']/g;
+  let match;
+
+  while ((match = importRegex.exec(code)) !== null) {
+    const importPath = match[1];
+    // 解析相对路径
+    const resolvedPath = new URL(
+      importPath,
+      new URL(path, window.location.href),
+    ).href;
+
+    // 递归获取导入的文件内容
+    const importedCode = await fetchShaderCode(resolvedPath);
+
+    // 替换 @import 指令
+    code = code.replace(match[0], importedCode);
+  }
+
+  // 更新缓存
+  shaderCache.set(path, code);
+
+  return code;
 }
 
 export class MyRandom {

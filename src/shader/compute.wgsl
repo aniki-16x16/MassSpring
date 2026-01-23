@@ -1,29 +1,5 @@
-struct Particle {
-  pos: vec4f,
-  velocity: vec2f,
-  mass: f32,
-  is_static: u32,
-}
-
-struct Spring {
-  a: u32,
-  b: u32,
-  rest_length: f32,
-  stiffness: f32,
-}
-
-struct Mouse {
-  pos: vec2f,
-  is_pressed: u32,
-  padding: f32,
-};
-
-struct Shape {
-  params: vec4f,
-  pos: vec2f,
-  rotation: f32,
-  shape_type: u32,
-}
+@import './shared/types.wgsl';
+@import './shared/math.wgsl';
 
 @group(0) @binding(0) var<storage, read> springs: array<Spring>;
 @group(0) @binding(1) var<storage, read> obstacles: array<Shape>;
@@ -135,14 +111,6 @@ fn solve_obstacle_collision(pos: vec2f, vel: vec2f) -> vec4f {
 }
 
 // SDF 默认质心在原点
-fn rotate(p: vec2f, angle: f32) -> vec2f {
-  let c = cos(angle);
-  let s = sin(angle);
-  return vec2f(
-    p.x * c - p.y * s,
-    p.x * s + p.y * c
-  );
-}
 fn get_normal(p: vec2f, shape: Shape) -> vec2f {
   let eps = 0.001;
   let dx = sd_scene(p + vec2f(eps, 0.0), shape) - sd_scene(p - vec2f(eps, 0.0), shape);
