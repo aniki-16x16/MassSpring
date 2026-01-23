@@ -23,8 +23,8 @@ struct VertexOutput {
 };
 
 @group(0) @binding(0) var<uniform> aspect_ratio: f32;
-@group(0) @binding(1) var<storage, read> springs: array<Spring>;
-@group(1) @binding(0) var<storage, read> particles: array<Particle>;
+@group(1) @binding(0) var<storage, read> springs: array<Spring>;
+@group(1) @binding(1) var<storage, read> particles: array<Particle>;
 
 const COLOR_THRESHOLD = 3.0;
 const GRID = array<vec2f, 6>(
@@ -50,7 +50,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
   let spring_perp = vec2f(spring_dir.y, -spring_dir.x);
 
   let quad_pos = GRID[in.vertex_index];
-  let final_pos = (select(pos_a, pos_b, quad_pos.x >= 0.5) + quad_pos.y * spring_perp * RADIUS) * vec2f(1.0 / aspect_ratio, 1.0);
+  let final_pos = (select(pos_a, pos_b, quad_pos.x > 0.0) + quad_pos.y * spring_perp * RADIUS) * vec2f(1.0 / aspect_ratio, 1.0);
 
   out.clip_position = vec4f(final_pos, 0.0, 1.0);
   out.factor = max(spring_len / spring.stiffness, spring.stiffness / spring_len);

@@ -1,6 +1,9 @@
+import { Shape } from "../infrastructure/Shapes/Base";
+import { Circle } from "../infrastructure/Shapes/Circle";
+import { Rect } from "../infrastructure/Shapes/Rect";
 import { fetchShaderCode } from "../infrastructure/utils";
 
-type BufferKey = "particle" | "force" | "spring" | "mouse";
+type BufferKey = "particle" | "force" | "spring" | "mouse" | "obstacle";
 type PipelineKey = "particle" | "spring";
 
 export class PhysicsEngine {
@@ -16,6 +19,7 @@ export class PhysicsEngine {
     force: null,
     spring: null,
     mouse: null,
+    obstacle: null,
   };
 
   private numParticles = 12;
@@ -28,6 +32,7 @@ export class PhysicsEngine {
   private initializeForceBuffer() {
     const forceData = new Float32Array(this.numParticles * 2);
     this.dataBuffers.force = this.device!.createBuffer({
+      label: "force buffer",
       size: forceData.byteLength,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       mappedAtCreation: true,
@@ -38,6 +43,7 @@ export class PhysicsEngine {
 
   private initializeMouseBuffer() {
     this.dataBuffers.mouse = this.device!.createBuffer({
+      label: "mouse buffer",
       size: 4 * 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
@@ -45,6 +51,7 @@ export class PhysicsEngine {
 
   private initializeParticleBuffer() {
     this.dataBuffers.particle = this.device!.createBuffer({
+      label: "particle buffer",
       size: this.numParticles * 8 * 4,
       usage:
         GPUBufferUsage.STORAGE |
@@ -69,7 +76,7 @@ export class PhysicsEngine {
       // mass (f32) -> offset + 6
       floatView[6] = 1;
       // is_static (u32) -> offset + 7
-      uintView[0] = [0, this.numParticles - 1].includes(i) ? 1 : 0;
+      uintView[0] = [this.numParticles - 1].includes(i) ? 1 : 0;
     }
 
     this.dataBuffers.particle!.unmap();
@@ -77,6 +84,7 @@ export class PhysicsEngine {
 
   private initializeSpringBuffer() {
     this.dataBuffers.spring = this.device!.createBuffer({
+      label: "spring buffer",
       size: this.numSprings * 4 * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       mappedAtCreation: true,
@@ -92,10 +100,27 @@ export class PhysicsEngine {
       // rest_length
       floatView[0] = 0.1;
       // stiffness
-      floatView[1] = 600;
+      floatView[1] = 1000;
     }
 
     this.dataBuffers.spring!.unmap();
+  }
+
+  private initializeObstacleBuffer() {
+    this.dataBuffers.obstacle = this.device!.createBuffer({
+      label: "obstacle buffer",
+      size: 2 * Shape.BYTE_SIZE,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      mappedAtCreation: true,
+    });
+    const obstacleData = this.dataBuffers.obstacle!.getMappedRange();
+
+    const circle = new Circle([-0.5, -0.3], 0.2);
+    circle.writeToComputeBuffer(obstacleData, 0);
+    const rect = new Rect([0.5, 0.2], 0.3, 0.1);
+    rect.writeToComputeBuffer(obstacleData, 1 * Shape.BYTE_SIZE);
+
+    this.dataBuffers.obstacle!.unmap();
   }
 
   private initializeBuffers() {
@@ -103,19 +128,27 @@ export class PhysicsEngine {
     this.initializeForceBuffer();
     this.initializeMouseBuffer();
     this.initializeSpringBuffer();
+    this.initializeObstacleBuffer();
   }
 
   private initializeBindGroup() {
     const layout0 = this.device!.createBindGroupLayout({
+      label: "compute bind group layout 0",
       entries: [
         {
           binding: 0,
           visibility: GPUShaderStage.COMPUTE,
           buffer: { type: "read-only-storage" },
         },
+        {
+          binding: 1,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: { type: "read-only-storage" },
+        },
       ],
     });
     const layout1 = this.device!.createBindGroupLayout({
+      label: "compute bind group layout 1",
       entries: [
         {
           binding: 0,
@@ -135,18 +168,25 @@ export class PhysicsEngine {
       ],
     });
     this.pipelineLayout = this.device!.createPipelineLayout({
+      label: "compute pipeline layout",
       bindGroupLayouts: [layout0, layout1],
     });
     const bindGroup0 = this.device!.createBindGroup({
+      label: "compute bind group 0",
       layout: layout0,
       entries: [
         {
           binding: 0,
           resource: { buffer: this.dataBuffers.spring! },
         },
+        {
+          binding: 1,
+          resource: { buffer: this.dataBuffers.obstacle! },
+        },
       ],
     });
     const bindGroup1 = this.device!.createBindGroup({
+      label: "compute bind group 1",
       layout: layout1,
       entries: [
         {
@@ -172,6 +212,7 @@ export class PhysicsEngine {
       code: shaderCode,
     });
     this.pipelines.spring = this.device!.createComputePipeline({
+      label: "spring compute pipeline",
       layout: this.pipelineLayout!,
       compute: {
         module: shaderModule,
@@ -179,6 +220,7 @@ export class PhysicsEngine {
       },
     });
     this.pipelines.particle = this.device!.createComputePipeline({
+      label: "particle compute pipeline",
       layout: this.pipelineLayout!,
       compute: {
         module: shaderModule,
@@ -241,5 +283,11 @@ export class PhysicsEngine {
   }
   getSpringCount(): number {
     return this.numSprings;
+  }
+  getObstacleBuffer(): GPUBuffer {
+    return this.dataBuffers.obstacle!;
+  }
+  getObstacleCount(): number {
+    return 2;
   }
 }

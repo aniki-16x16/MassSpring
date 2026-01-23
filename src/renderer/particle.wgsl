@@ -44,5 +44,5 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
   let dist = length(in.uv);
-  return vec4f(vec3f(1.0), smoothstep(1.0, 0.98, dist));
+  return vec4f(vec3f(1.0), smoothstep(1.0, 0.99, dist));
 }

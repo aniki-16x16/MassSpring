@@ -30,6 +30,8 @@ const main = async () => {
       engine.getVertexCount(),
       engine.getSpringBuffer(),
       engine.getSpringCount(),
+      engine.getObstacleBuffer(),
+      engine.getObstacleCount(),
     );
 
     const aspectRatio = window.innerWidth / window.innerHeight;
