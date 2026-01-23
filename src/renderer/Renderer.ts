@@ -1,30 +1,19 @@
-import { fetchShaderCode } from "../infrastructure/utils";
-
-type PipelineKey = "particle" | "spring" | "shape";
+import { ParticlePipeline } from "./ParticlePipeline";
+import { SpringPipeline } from "./SpringPipeline";
+import { ShapePipeline } from "./ShapePipeline";
 
 export class Renderer {
   private device: GPUDevice | null = null;
   private context: GPUCanvasContext | null = null;
   private canvasFormat: GPUTextureFormat | null = null;
 
-  private particleCount: number = 0;
-  private springCount: number = 0;
-  private shapeCount: number = 0;
-
   private uniformBuffer: GPUBuffer | null = null;
   private globalBindGroupLayout: GPUBindGroupLayout | null = null;
   private globalBindGroup: GPUBindGroup | null = null;
 
-  private bindGroups: Record<PipelineKey, GPUBindGroup[]> = {
-    particle: [],
-    spring: [],
-    shape: [],
-  };
-  private pipelines: Record<PipelineKey, GPURenderPipeline | null> = {
-    particle: null,
-    spring: null,
-    shape: null,
-  };
+  private particlePipeline: ParticlePipeline | null = null;
+  private springPipeline: SpringPipeline | null = null;
+  private shapePipeline: ShapePipeline | null = null;
 
   constructor(
     device: GPUDevice,
@@ -72,235 +61,6 @@ export class Renderer {
     });
   }
 
-  private async initializeParticlePipeline(particleBuffer: GPUBuffer) {
-    const shaderCode = await fetchShaderCode("src/shader/render_particle.wgsl");
-    const shaderModule = this.device!.createShaderModule({
-      code: shaderCode,
-    });
-
-    const layout1 = this.device!.createBindGroupLayout({
-      label: "renderer particle bind group layout",
-      entries: [
-        {
-          binding: 0,
-          visibility: GPUShaderStage.VERTEX,
-          buffer: {
-            type: "read-only-storage",
-          },
-        },
-      ],
-    });
-    const group1 = this.device!.createBindGroup({
-      label: "renderer particle bind group",
-      layout: layout1,
-      entries: [
-        {
-          binding: 0,
-          resource: {
-            buffer: particleBuffer,
-          },
-        },
-      ],
-    });
-    this.bindGroups.particle = [this.globalBindGroup!, group1];
-
-    const pipelineLayouts = this.device!.createPipelineLayout({
-      label: "renderer particle pipeline layout",
-      bindGroupLayouts: [this.globalBindGroupLayout!, layout1],
-    });
-    this.pipelines.particle = this.device!.createRenderPipeline({
-      label: "renderer particle render pipeline",
-      layout: pipelineLayouts,
-      vertex: {
-        module: shaderModule,
-        entryPoint: "vs_main",
-        buffers: [],
-      },
-      fragment: {
-        module: shaderModule,
-        entryPoint: "fs_main",
-        targets: [
-          {
-            format: this.canvasFormat!,
-            blend: {
-              color: {
-                srcFactor: "src-alpha",
-                dstFactor: "one-minus-src-alpha",
-                operation: "add",
-              },
-              alpha: {
-                srcFactor: "one",
-                dstFactor: "one-minus-src-alpha",
-                operation: "add",
-              },
-            },
-          },
-        ],
-      },
-      primitive: {
-        topology: "triangle-list",
-      },
-    });
-  }
-
-  private async initializeSpringPipeline(
-    springBuffer: GPUBuffer,
-    particleBuffer: GPUBuffer,
-  ) {
-    const shaderCode = await fetchShaderCode("src/shader/render_spring.wgsl");
-    const shaderModule = this.device!.createShaderModule({
-      code: shaderCode,
-    });
-
-    const layout1 = this.device!.createBindGroupLayout({
-      label: "renderer spring bind group layout",
-      entries: [
-        {
-          binding: 0,
-          visibility: GPUShaderStage.VERTEX,
-          buffer: {
-            type: "read-only-storage",
-          },
-        },
-        {
-          binding: 1,
-          visibility: GPUShaderStage.VERTEX,
-          buffer: {
-            type: "read-only-storage",
-          },
-        },
-      ],
-    });
-    const group1 = this.device!.createBindGroup({
-      label: "renderer spring bind group",
-      layout: layout1,
-      entries: [
-        {
-          binding: 0,
-          resource: {
-            buffer: springBuffer,
-          },
-        },
-        {
-          binding: 1,
-          resource: {
-            buffer: particleBuffer,
-          },
-        },
-      ],
-    });
-    this.bindGroups.spring = [this.globalBindGroup!, group1];
-
-    const pipelineLayouts = this.device!.createPipelineLayout({
-      label: "renderer spring pipeline layout",
-      bindGroupLayouts: [this.globalBindGroupLayout!, layout1],
-    });
-    this.pipelines.spring = this.device!.createRenderPipeline({
-      label: "renderer spring render pipeline",
-      layout: pipelineLayouts,
-      vertex: {
-        module: shaderModule,
-        entryPoint: "vs_main",
-        buffers: [],
-      },
-      fragment: {
-        module: shaderModule,
-        entryPoint: "fs_main",
-        targets: [
-          {
-            format: this.canvasFormat!,
-            blend: {
-              color: {
-                srcFactor: "src-alpha",
-                dstFactor: "one-minus-src-alpha",
-                operation: "add",
-              },
-              alpha: {
-                srcFactor: "one",
-                dstFactor: "one-minus-src-alpha",
-                operation: "add",
-              },
-            },
-          },
-        ],
-      },
-      primitive: {
-        topology: "triangle-list",
-      },
-    });
-  }
-
-  private async initializeShapePipeline(shapeBuffer: GPUBuffer) {
-    const shaderCode = await fetchShaderCode("src/shader/render_shape.wgsl");
-    const shaderModule = this.device!.createShaderModule({
-      code: shaderCode,
-    });
-
-    const layout1 = this.device!.createBindGroupLayout({
-      label: "renderer shape bind group layout",
-      entries: [
-        {
-          binding: 0,
-          visibility: GPUShaderStage.VERTEX,
-          buffer: {
-            type: "read-only-storage",
-          },
-        },
-      ],
-    });
-    const group1 = this.device!.createBindGroup({
-      label: "renderer shape bind group",
-      layout: layout1,
-      entries: [
-        {
-          binding: 0,
-          resource: {
-            buffer: shapeBuffer,
-          },
-        },
-      ],
-    });
-    this.bindGroups.shape = [this.globalBindGroup!, group1];
-
-    const pipelineLayouts = this.device!.createPipelineLayout({
-      label: "renderer shape pipeline layout",
-      bindGroupLayouts: [this.globalBindGroupLayout!, layout1],
-    });
-    this.pipelines.shape = this.device!.createRenderPipeline({
-      label: "renderer shape render pipeline",
-      layout: pipelineLayouts,
-      vertex: {
-        module: shaderModule,
-        entryPoint: "vs_main",
-        buffers: [],
-      },
-      fragment: {
-        module: shaderModule,
-        entryPoint: "fs_main",
-        targets: [
-          {
-            format: this.canvasFormat!,
-            blend: {
-              color: {
-                srcFactor: "src-alpha",
-                dstFactor: "one-minus-src-alpha",
-                operation: "add",
-              },
-              alpha: {
-                srcFactor: "one",
-                dstFactor: "one-minus-src-alpha",
-                operation: "add",
-              },
-            },
-          },
-        ],
-      },
-      primitive: {
-        topology: "triangle-list",
-      },
-    });
-  }
-
   async initialize(
     particleBuffer: GPUBuffer,
     particleCount: number,
@@ -309,15 +69,46 @@ export class Renderer {
     shapeBuffer: GPUBuffer,
     shapeCount: number,
   ): Promise<void> {
-    this.particleCount = particleCount;
-    this.springCount = springCount;
-    this.shapeCount = shapeCount;
     this.initializeGlobalBindGroup();
+
+    // 创建管线实例
+    this.particlePipeline = new ParticlePipeline(
+      this.device!,
+      this.canvasFormat!,
+      particleBuffer,
+    );
+    this.springPipeline = new SpringPipeline(
+      this.device!,
+      this.canvasFormat!,
+      springBuffer,
+      particleBuffer,
+    );
+    this.shapePipeline = new ShapePipeline(
+      this.device!,
+      this.canvasFormat!,
+      shapeBuffer,
+    );
+
+    // 并行初始化所有管线
     await Promise.all([
-      this.initializeParticlePipeline(particleBuffer),
-      this.initializeSpringPipeline(springBuffer, particleBuffer),
-      this.initializeShapePipeline(shapeBuffer),
+      this.particlePipeline.initialize(
+        this.globalBindGroupLayout!,
+        this.globalBindGroup!,
+      ),
+      this.springPipeline.initialize(
+        this.globalBindGroupLayout!,
+        this.globalBindGroup!,
+      ),
+      this.shapePipeline.initialize(
+        this.globalBindGroupLayout!,
+        this.globalBindGroup!,
+      ),
     ]);
+
+    // 设置实例数量
+    this.particlePipeline.setInstanceCount(particleCount);
+    this.springPipeline.setInstanceCount(springCount);
+    this.shapePipeline.setInstanceCount(shapeCount);
   }
 
   updateAspectRatio(aspectRatio: number) {
@@ -343,20 +134,10 @@ export class Renderer {
       ],
     });
 
-    renderPass.setPipeline(this.pipelines.spring!);
-    renderPass.setBindGroup(0, this.bindGroups.spring[0]);
-    renderPass.setBindGroup(1, this.bindGroups.spring[1]);
-    renderPass.draw(6, this.springCount, 0, 0);
-
-    renderPass.setPipeline(this.pipelines.particle!);
-    renderPass.setBindGroup(0, this.bindGroups.particle[0]);
-    renderPass.setBindGroup(1, this.bindGroups.particle[1]);
-    renderPass.draw(6, this.particleCount, 0, 0);
-
-    renderPass.setPipeline(this.pipelines.shape!);
-    renderPass.setBindGroup(0, this.bindGroups.shape[0]);
-    renderPass.setBindGroup(1, this.bindGroups.shape[1]);
-    renderPass.draw(6, this.shapeCount, 0, 0);
+    // 按顺序渲染：弹簧 -> 粒子 -> 形状
+    this.springPipeline?.render(renderPass);
+    this.particlePipeline?.render(renderPass);
+    this.shapePipeline?.render(renderPass);
 
     renderPass.end();
     this.device!.queue.submit([commandEncoder.finish()]);
