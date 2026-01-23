@@ -8,9 +8,10 @@
 @group(1) @binding(1) var<storage, read_write> forces: array<vec2f>;
 @group(1) @binding(2) var<uniform> mouse: Mouse;
 
+const DELTA_TIME = 0.008;
+
 const MOUSE_THRESHOLD = 0.05;
 const MOUSE_FORCE = 100.0;
-const DELTA_TIME = 0.008;
 const DAMPING_GLOBAL = 0.995;
 const RADIUS = 0.01;
 

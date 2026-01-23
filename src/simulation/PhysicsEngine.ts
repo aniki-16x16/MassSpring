@@ -22,8 +22,8 @@ export class PhysicsEngine {
     obstacle: null,
   };
 
-  private numParticles = 12;
-  private numSprings = 11;
+  private numParticles = 32;
+  private numSprings = 31;
 
   constructor(device: GPUDevice) {
     this.device = device;
@@ -74,7 +74,7 @@ export class PhysicsEngine {
       floatView[4] = 0;
       floatView[5] = 0;
       // mass (f32) -> offset + 6
-      floatView[6] = 1;
+      floatView[6] = 1 + (1 / (this.numParticles - 1)) * i;
       // is_static (u32) -> offset + 7
       uintView[0] = [this.numParticles - 1].includes(i) ? 1 : 0;
     }
@@ -98,9 +98,9 @@ export class PhysicsEngine {
       uintView[0] = i;
       uintView[1] = i + 1;
       // rest_length
-      floatView[0] = 0.1;
+      floatView[0] = 0.05;
       // stiffness
-      floatView[1] = 1000;
+      floatView[1] = 500 + (1000 / (this.numSprings - 1)) * i;
     }
 
     this.dataBuffers.spring!.unmap();
@@ -109,16 +109,21 @@ export class PhysicsEngine {
   private initializeObstacleBuffer() {
     this.dataBuffers.obstacle = this.device!.createBuffer({
       label: "obstacle buffer",
-      size: 2 * Shape.BYTE_SIZE,
+      size: 3 * Shape.BYTE_SIZE,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       mappedAtCreation: true,
     });
     const obstacleData = this.dataBuffers.obstacle!.getMappedRange();
 
-    const circle = new Circle([-0.5, -0.3], 0.2);
-    circle.writeToComputeBuffer(obstacleData, 0);
-    const rect = new Rect([0.5, 0.2], 0.3, 0.1);
-    rect.writeToComputeBuffer(obstacleData, 1 * Shape.BYTE_SIZE);
+    new Circle([-0.5, -0.3], 0.2).writeToComputeBuffer(obstacleData, 0);
+    new Circle([0.0, -0.2], 0.1).writeToComputeBuffer(
+      obstacleData,
+      1 * Shape.BYTE_SIZE,
+    );
+    new Rect([0.5, 0.2], [0.3, 0.1], Math.PI / 6).writeToComputeBuffer(
+      obstacleData,
+      2 * Shape.BYTE_SIZE,
+    );
 
     this.dataBuffers.obstacle!.unmap();
   }
@@ -288,6 +293,6 @@ export class PhysicsEngine {
     return this.dataBuffers.obstacle!;
   }
   getObstacleCount(): number {
-    return 2;
+    return 3;
   }
 }

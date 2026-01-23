@@ -32,7 +32,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
   let size = get_shape_size(shape);
 
   let quad_pos = GRID[in.vertex_index];
-  let rotated_pos = rotate(quad_pos, shape.rotation) * size;
+  let rotated_pos = rotate(quad_pos * size, shape.rotation);
   let final_pos = (shape.pos + rotated_pos) * vec2f(1.0 / aspect_ratio, 1.0);
 
   out.clip_position = vec4f(final_pos, 0.0, 1.0);

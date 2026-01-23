@@ -4,11 +4,12 @@ export class Rect extends Shape {
   width: number;
   height: number;
 
-  constructor(position: [number, number], width: number, height: number) {
+  constructor(position: [number, number], b: [number, number], rotation = 0) {
     super();
     this.position = position;
-    this.width = width;
-    this.height = height;
+    this.width = b[0];
+    this.height = b[1];
+    this.rotation = rotation;
   }
 
   writeToComputeBuffer(buffer: ArrayBuffer, offset: number): void {
