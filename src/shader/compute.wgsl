@@ -1,14 +1,15 @@
 @import './shared/types.wgsl';
 @import './shared/math.wgsl';
 
-@group(0) @binding(0) var<storage, read> springs: array<Spring>;
+@group(0) @binding(0) var<storage, read_write> springs: array<Spring>;
 @group(0) @binding(1) var<storage, read> obstacles: array<Shape>;
 
 @group(1) @binding(0) var<storage, read_write> data: array<Particle>;
-@group(1) @binding(1) var<storage, read_write> forces: array<vec2f>;
+@group(1) @binding(1) var<storage, read_write> forces: array<atomic<i32>>;
 @group(1) @binding(2) var<uniform> mouse: Mouse;
 
 const DELTA_TIME = 0.008;
+const FORCE_SCALE = 1000.0;
 
 const MOUSE_THRESHOLD = 0.05;
 const MOUSE_FORCE = 100.0;
@@ -55,9 +56,11 @@ fn main(@builtin(global_invocation_id) global_id : vec3u) {
 }
 
 fn compute_force(index: u32) -> vec2f {
-  let force = forces[index];
-  forces[index] = vec2f(0.0, 0.0);
-  return force + vec2f(0.0, -9.8);
+  var f_x = atomicLoad(&forces[index * 2]);
+  var f_y = atomicLoad(&forces[index * 2 + 1]);
+  atomicStore(&forces[index * 2], 0);
+  atomicStore(&forces[index * 2 + 1], 0);
+  return vec2f(f32(f_x) / FORCE_SCALE, f32(f_y) / FORCE_SCALE) + vec2f(0.0, -9.8);
 }
 
 fn compute_mouse_force(pos: vec2f) -> vec2f {
@@ -81,12 +84,18 @@ fn spring_main(@builtin(global_invocation_id) global_id : vec3u) {
   let pos_b = data[spring.b].pos.xy;
 
   let delta = pos_b - pos_a;
+  if (length(delta) > spring.breaking_threshold) {
+    springs[index].is_broken = 1.0;
+    return;
+  }
   let direction = normalize(delta);
   let displacement = length(delta) - spring.rest_length;
   let force = spring.stiffness * displacement * direction;
 
-  forces[spring.a] += force;
-  forces[spring.b] -= force;
+  atomicAdd(&forces[spring.a * 2], i32(force.x * FORCE_SCALE));
+  atomicAdd(&forces[spring.a * 2 + 1], i32(force.y * FORCE_SCALE));
+  atomicAdd(&forces[spring.b * 2], i32(-force.x * FORCE_SCALE));
+  atomicAdd(&forces[spring.b * 2 + 1], i32(-force.y * FORCE_SCALE));
 }
 
 fn solve_obstacle_collision(pos: vec2f, vel: vec2f) -> vec4f {

@@ -30,6 +30,11 @@ fn vs_main(in: VertexInput) -> VertexOutput {
   var out: VertexOutput;
 
   let spring = springs[in.instance_index];
+  if (spring.is_broken > 0.0) {
+    out.clip_position = vec4f(0.0);
+    out.factor = 0.0;
+    return out;
+  }
   let pos_a = particles[spring.a].pos.xy;
   let pos_b = particles[spring.b].pos.xy;
 

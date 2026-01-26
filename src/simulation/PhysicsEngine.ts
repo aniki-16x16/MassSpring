@@ -30,15 +30,11 @@ export class PhysicsEngine {
   }
 
   private initializeForceBuffer() {
-    const forceData = new Float32Array(this.numParticles * 2);
     this.dataBuffers.force = this.device!.createBuffer({
       label: "force buffer",
-      size: forceData.byteLength,
+      size: this.numParticles * 2 * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-      mappedAtCreation: true,
     });
-    new Float32Array(this.dataBuffers.force!.getMappedRange()).set(forceData);
-    this.dataBuffers.force!.unmap();
   }
 
   private initializeMouseBuffer() {
@@ -85,22 +81,26 @@ export class PhysicsEngine {
   private initializeSpringBuffer() {
     this.dataBuffers.spring = this.device!.createBuffer({
       label: "spring buffer",
-      size: this.numSprings * 4 * 4,
+      size: this.numSprings * 8 * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       mappedAtCreation: true,
     });
     const springData = this.dataBuffers.spring!.getMappedRange();
 
     for (let i = 0; i < this.numSprings; i++) {
-      const byteOffset = i * 4 * 4;
+      const byteOffset = i * 8 * 4;
       const uintView = new Uint32Array(springData, byteOffset, 2);
-      const floatView = new Float32Array(springData, byteOffset + 2 * 4, 2);
+      const floatView = new Float32Array(springData, byteOffset + 2 * 4, 6);
       uintView[0] = i;
       uintView[1] = i + 1;
       // rest_length
       floatView[0] = 0.05;
       // stiffness
       floatView[1] = 500 + (1000 / (this.numSprings - 1)) * i;
+      // is_broken
+      floatView[2] = 0.0;
+      // breaking_threshold
+      floatView[3] = 0.2;
     }
 
     this.dataBuffers.spring!.unmap();
@@ -143,7 +143,7 @@ export class PhysicsEngine {
         {
           binding: 0,
           visibility: GPUShaderStage.COMPUTE,
-          buffer: { type: "read-only-storage" },
+          buffer: { type: "storage" },
         },
         {
           binding: 1,

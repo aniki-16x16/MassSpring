@@ -10,6 +10,9 @@ struct Spring {
   b: u32,
   rest_length: f32,
   stiffness: f32,
+  is_broken: f32,
+  breaking_threshold: f32,
+  padding: vec2f,
 }
 
 struct Mouse {
