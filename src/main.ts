@@ -26,8 +26,8 @@ const main = async () => {
       navigator.gpu.getPreferredCanvasFormat(),
     );
     await renderer.initialize(
-      engine.getVertexBuffer(),
-      engine.getVertexCount(),
+      engine.getParticleBuffer(),
+      engine.getParticleCount(),
       engine.getSpringBuffer(),
       engine.getSpringCount(),
       engine.getObstacleBuffer(),

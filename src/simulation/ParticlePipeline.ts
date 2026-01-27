@@ -1,17 +1,40 @@
 import {
   BaseComputePipeline,
   type ComputePipelineConfig,
+  type PipelineDescriptor,
 } from "./BaseComputePipeline";
 
-interface ExtraBuffers {
-  forceBuffer: GPUBuffer;
-  obstacleBuffer: GPUBuffer;
-}
-
+/**
+ * ParticleComputePipeline - 粒子计算管线
+ *
+ * 职责：
+ * - 管理粒子 buffer（位置、速度、质量等）
+ * - 根据力更新粒子状态
+ * - 处理与障碍物的碰撞
+ *
+ * 提供：particleBuffer
+ * 需要：forceBuffer, obstacleBuffer, globalBindGroup
+ */
 export class ParticleComputePipeline extends BaseComputePipeline {
-  instanceCount: number = 32;
-  private buffer: GPUBuffer | null = null;
-  private extraBuffers: ExtraBuffers | null = null;
+  public instanceCount: number = 32;
+  private particleBuffer: GPUBuffer | null = null;
+
+  // ========== 描述资源依赖 ==========
+
+  getDescriptor(): PipelineDescriptor {
+    return {
+      provides: {
+        buffers: ["particleBuffer"],
+      },
+      requires: {
+        buffers: [], // 延迟依赖检查
+        bindGroups: ["globalBindGroup"],
+        bindGroupLayouts: ["globalBindGroupLayout"],
+      },
+    };
+  }
+
+  // ========== 配置管线 ==========
 
   protected getConfig(): ComputePipelineConfig {
     return {
@@ -24,23 +47,26 @@ export class ParticleComputePipeline extends BaseComputePipeline {
             {
               binding: 0,
               visibility: GPUShaderStage.COMPUTE,
-              buffer: {
-                type: "storage",
-              },
+              buffer: { type: "uniform" },
+            },
+          ],
+        },
+        {
+          entries: [
+            {
+              binding: 0,
+              visibility: GPUShaderStage.COMPUTE,
+              buffer: { type: "storage" },
             },
             {
               binding: 1,
               visibility: GPUShaderStage.COMPUTE,
-              buffer: {
-                type: "storage",
-              },
+              buffer: { type: "storage" },
             },
             {
               binding: 2,
               visibility: GPUShaderStage.COMPUTE,
-              buffer: {
-                type: "read-only-storage",
-              },
+              buffer: { type: "read-only-storage" },
             },
           ],
         },
@@ -48,33 +74,11 @@ export class ParticleComputePipeline extends BaseComputePipeline {
     };
   }
 
-  protected getBindGroupResources(): GPUBindGroupEntry[][] {
-    return [
-      [
-        {
-          binding: 0,
-          resource: {
-            buffer: this.buffer!,
-          },
-        },
-        {
-          binding: 1,
-          resource: {
-            buffer: this.extraBuffers!.forceBuffer,
-          },
-        },
-        {
-          binding: 2,
-          resource: {
-            buffer: this.extraBuffers!.obstacleBuffer,
-          },
-        },
-      ],
-    ];
-  }
+  // ========== 创建资源 ==========
 
-  initBuffer() {
-    const particleBuffer = this.device!.createBuffer({
+  protected async createOwnedResources(): Promise<void> {
+    // 创建粒子 buffer
+    this.particleBuffer = this.device.createBuffer({
       label: "particle buffer",
       size: this.instanceCount * 8 * 4,
       usage:
@@ -83,12 +87,14 @@ export class ParticleComputePipeline extends BaseComputePipeline {
         GPUBufferUsage.COPY_DST,
       mappedAtCreation: true,
     });
-    const particleData = particleBuffer.getMappedRange();
 
+    // 初始化粒子数据
+    const particleData = this.particleBuffer.getMappedRange();
     for (let i = 0; i < this.instanceCount; i++) {
       const byteOffset = i * 8 * 4;
       const floatView = new Float32Array(particleData, byteOffset, 7);
       const uintView = new Uint32Array(particleData, byteOffset + 7 * 4, 1);
+
       // pos (vec4f) -> offset + 0, 1, 2, 3
       floatView[0] = -1 + (2 / (this.instanceCount - 1)) * i;
       floatView[1] = 0.8;
@@ -102,16 +108,41 @@ export class ParticleComputePipeline extends BaseComputePipeline {
       // is_static (u32) -> offset + 7
       uintView[0] = [this.instanceCount - 1].includes(i) ? 1 : 0;
     }
+    this.particleBuffer.unmap();
 
-    particleBuffer.unmap();
-    this.buffer = particleBuffer;
+    // 注册到 Registry
+    this.registry.registerBuffer("particleBuffer", this.particleBuffer);
+
+    // 延迟创建 bind group（需要等 forceBuffer 创建完成）
   }
 
-  getBufferResource(): GPUBuffer {
-    return this.buffer!;
-  }
+  /**
+   * 在所有依赖资源准备好后，创建 bind group
+   */
+  completeInitialization(): void {
+    const bindGroup = this.device.createBindGroup({
+      label: "[Compute][Particle] Bind Group",
+      layout: this.bindGroupLayouts[1],
+      entries: [
+        {
+          binding: 0,
+          resource: { buffer: this.particleBuffer! },
+        },
+        {
+          binding: 1,
+          resource: { buffer: this.registry.getBuffer("forceBuffer") },
+        },
+        {
+          binding: 2,
+          resource: { buffer: this.registry.getBuffer("obstacleBuffer") },
+        },
+      ],
+    });
 
-  setExtraBuffers(buffers: ExtraBuffers) {
-    this.extraBuffers = buffers;
+    // 设置 bind groups（global + own）
+    this.bindGroups = [
+      this.registry.getBindGroup("globalBindGroup"),
+      bindGroup,
+    ];
   }
 }
