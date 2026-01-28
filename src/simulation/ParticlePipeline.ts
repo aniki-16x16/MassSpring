@@ -17,7 +17,7 @@ import {
  * 需要：forceBuffer, obstacleBuffer, globalBindGroup
  */
 export class ParticleComputePipeline extends BaseComputePipeline {
-  public instanceCount: number = 128;
+  public instanceCount: number = 256;
   private particleBuffer: GPUBuffer | null = null;
 
   // ========== 描述资源依赖 ==========

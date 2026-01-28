@@ -36,8 +36,8 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     i32(in.instance_index) / COLUMN_NUM
   );
   let cell_center = vec2f(
-    (f32(cell.x) + 0.5) * CELL_SIZE - 1.0,
-    (f32(cell.y) + 0.5) * CELL_SIZE - 1.0
+    (f32(cell.x) + 0.5) * CELL_SIZE - BOX_BOUNDARY.x,
+    (f32(cell.y) + 0.5) * CELL_SIZE - BOX_BOUNDARY.y
   );
   let final_pos = (cell_center + quad_pos * (CELL_SIZE * 0.5)) * vec2f(1.0 / aspect_ratio, 1.0);
   out.clip_position = vec4f(final_pos, 0.0, 1.0);
@@ -46,5 +46,5 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-  return vec4f(0.0, 1.0, 0.0, 0.1);
+  return vec4f(0.0, 1.0, 0.0, 0.2);
 }

@@ -11,7 +11,7 @@
 @group(1) @binding(3) var<storage, read> uniform_grid: array<i32>;
 @group(1) @binding(4) var<storage, read> particle_next: array<i32>;
 
-const DELTA_TIME = 0.001;
+const DELTA_TIME = 0.003;
 
 const MOUSE_THRESHOLD = 0.05;
 const MOUSE_FORCE = 100.0;
@@ -43,11 +43,11 @@ fn main(@builtin(global_invocation_id) global_id : vec3u) {
   pos.y += vel.y * DELTA_TIME;
   if (pos.y < -BOX_BOUNDARY.y) {
     pos.y = -BOX_BOUNDARY.y;
-    vel.y = -vel.y * 0.9;
+    vel.y = -vel.y * 0.95;
   }
   if (abs(pos.x) > BOX_BOUNDARY.x) {
     pos.x = clamp(pos.x, -BOX_BOUNDARY.x, BOX_BOUNDARY.x);
-    vel.x = -vel.x * 0.9;
+    vel.x = -vel.x * 0.95;
   }
   let corrected = solve_obstacle_collision(pos.xy, vel);
   pos.x = corrected.x;
@@ -93,7 +93,7 @@ fn compute_particle_collision(index: u32) -> vec2f {
           let dist = length(delta);
           if (dist < PARTICLE_RADIUS * 2.0) {
             let push_dir = normalize(delta);
-            let push_mag = (PARTICLE_RADIUS * 2.0 - dist) * 0.5;
+            let push_mag = (PARTICLE_RADIUS * 2.0 - dist) * 5000.0;
             total_push += push_dir * push_mag;
           }
         }
@@ -133,7 +133,7 @@ fn solve_obstacle_collision(pos: vec2f, vel: vec2f) -> vec4f {
       if (speed_normal < 0.0) {
         let vel_normal = speed_normal * normal;
         let vel_tangent = vel - vel_normal;
-        new_vel = vel_tangent - vel_normal * 0.9;
+        new_vel = vel_tangent - vel_normal * 0.95;
       }
     }
   }

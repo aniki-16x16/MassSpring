@@ -68,9 +68,7 @@ export class GridComputePipeline extends BaseComputePipeline {
       label: "grid buffer",
       size: this.gridCellCount * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-      mappedAtCreation: true,
     });
-    new Int32Array(this.gridBuffer.getMappedRange()).fill(-1);
     this.gridBuffer.unmap();
     this.registry.registerBuffer("gridBuffer", this.gridBuffer);
 
@@ -78,9 +76,7 @@ export class GridComputePipeline extends BaseComputePipeline {
       label: "particle next buffer",
       size: this.instanceCount * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-      mappedAtCreation: true,
     });
-    new Int32Array(this.particleNextBuffer.getMappedRange()).fill(-1);
     this.particleNextBuffer.unmap();
     this.registry.registerBuffer("particleNextBuffer", this.particleNextBuffer);
   }

@@ -140,7 +140,7 @@ export class Renderer {
     });
 
     // 按顺序渲染：弹簧 -> 粒子 -> 形状
-    this.gridPipeline?.render(renderPass);
+    // this.gridPipeline?.render(renderPass);
     this.springPipeline?.render(renderPass);
     this.particlePipeline?.render(renderPass);
     this.shapePipeline?.render(renderPass);

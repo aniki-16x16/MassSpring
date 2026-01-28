@@ -25,11 +25,11 @@ export class PhysicsEngine {
     grid: GridComputePipeline | null;
     cleanGrid: CleanGridPipeline | null;
   } = {
-    particle: null,
-    spring: null,
-    grid: null,
-    cleanGrid: null,
-  };
+      particle: null,
+      spring: null,
+      grid: null,
+      cleanGrid: null,
+    };
 
   // 全局资源
   private mouseBuffer: GPUBuffer | null = null;
@@ -49,10 +49,6 @@ export class PhysicsEngine {
     const gridPipeline = new GridComputePipeline(this.device);
     gridPipeline.instanceCount = particlePipeline.instanceCount;
     const cleanGridPipeline = new CleanGridPipeline(this.device);
-    cleanGridPipeline.instanceCount = Math.max(
-      particlePipeline.instanceCount,
-      gridPipeline.gridCellCount,
-    );
 
     this.pipelines.particle = particlePipeline;
     this.pipelines.spring = springPipeline;
@@ -67,6 +63,10 @@ export class PhysicsEngine {
     await springPipeline.initialize();
     await gridPipeline.initialize();
     await cleanGridPipeline.initialize();
+    cleanGridPipeline.instanceCount = Math.max(
+      particlePipeline.instanceCount,
+      gridPipeline.gridCellCount,
+    );
 
     // 阶段3：现在所有 buffer 都有了，完成 bind group 创建
     springPipeline.completeInitialization();
@@ -161,6 +161,10 @@ export class PhysicsEngine {
   run(): void {
     const commandEncoder = this.device.createCommandEncoder();
 
+    const clearPass = commandEncoder.beginComputePass();
+    this.pipelines.cleanGrid!.run(clearPass);
+    clearPass.end();
+
     const prePass = commandEncoder.beginComputePass();
     this.pipelines.spring!.run(prePass);
     this.pipelines.grid!.run(prePass);
@@ -169,10 +173,6 @@ export class PhysicsEngine {
     const particlePass = commandEncoder.beginComputePass();
     this.pipelines.particle!.run(particlePass);
     particlePass.end();
-
-    const afterPass = commandEncoder.beginComputePass();
-    this.pipelines.cleanGrid!.run(afterPass);
-    afterPass.end();
 
     this.device.queue.submit([commandEncoder.finish()]);
   }
