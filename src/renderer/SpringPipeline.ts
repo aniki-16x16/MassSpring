@@ -1,18 +1,8 @@
-import { BasePipeline, type PipelineConfig } from "./BasePipeline";
+import { BaseRenderPipeline, type PipelineConfig } from "./BaseRenderPipeline";
 
-export class SpringPipeline extends BasePipeline {
-  private springBuffer: GPUBuffer;
-  private particleBuffer: GPUBuffer;
-
-  constructor(
-    device: GPUDevice,
-    canvasFormat: GPUTextureFormat,
-    springBuffer: GPUBuffer,
-    particleBuffer: GPUBuffer,
-  ) {
+export class SpringRenderPipeline extends BaseRenderPipeline {
+  constructor(device: GPUDevice, canvasFormat: GPUTextureFormat) {
     super(device, canvasFormat);
-    this.springBuffer = springBuffer;
-    this.particleBuffer = particleBuffer;
   }
 
   protected getConfig(): PipelineConfig {
@@ -48,13 +38,13 @@ export class SpringPipeline extends BasePipeline {
         {
           binding: 0,
           resource: {
-            buffer: this.springBuffer,
+            buffer: this.registry.getBuffer("springBuffer"),
           },
         },
         {
           binding: 1,
           resource: {
-            buffer: this.particleBuffer,
+            buffer: this.registry.getBuffer("particleBuffer"),
           },
         },
       ],

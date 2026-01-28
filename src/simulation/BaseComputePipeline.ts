@@ -1,5 +1,8 @@
 import { fetchShaderCode } from "../infrastructure/utils";
-import { ResourceRegistry } from "./ResourceRegistry";
+import {
+  resourceRegistry,
+  ResourceRegistry,
+} from "../infrastructure/ResourceRegistry";
 
 /**
  * PipelineDescriptor - 描述 Pipeline 的资源依赖关系
@@ -41,15 +44,14 @@ export interface ComputePipelineConfig {
  */
 export abstract class BaseComputePipeline {
   protected device: GPUDevice;
-  protected registry: ResourceRegistry;
+  protected registry: ResourceRegistry = resourceRegistry;
   protected pipeline: GPUComputePipeline | null = null;
   protected bindGroupLayouts: GPUBindGroupLayout[] = [];
   protected bindGroups: GPUBindGroup[] = [];
   public instanceCount: number = 0;
 
-  constructor(device: GPUDevice, registry: ResourceRegistry) {
+  constructor(device: GPUDevice) {
     this.device = device;
-    this.registry = registry;
   }
 
   // ========== 子类必须实现 ==========

@@ -1,15 +1,8 @@
-import { BasePipeline, type PipelineConfig } from "./BasePipeline";
+import { BaseRenderPipeline, type PipelineConfig } from "./BaseRenderPipeline";
 
-export class ShapePipeline extends BasePipeline {
-  private shapeBuffer: GPUBuffer;
-
-  constructor(
-    device: GPUDevice,
-    canvasFormat: GPUTextureFormat,
-    shapeBuffer: GPUBuffer,
-  ) {
+export class ShapeRenderPipeline extends BaseRenderPipeline {
+  constructor(device: GPUDevice, canvasFormat: GPUTextureFormat) {
     super(device, canvasFormat);
-    this.shapeBuffer = shapeBuffer;
   }
 
   protected getConfig(): PipelineConfig {
@@ -38,7 +31,7 @@ export class ShapePipeline extends BasePipeline {
         {
           binding: 0,
           resource: {
-            buffer: this.shapeBuffer,
+            buffer: this.registry.getBuffer("obstacleBuffer"),
           },
         },
       ],

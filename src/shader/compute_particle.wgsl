@@ -1,19 +1,21 @@
 @import './shared/types.wgsl';
+@import './shared/compute_constants.wgsl';
 @import './shared/math.wgsl';
+@import './shared/grid_utils.wgsl';
 
 @group(0) @binding(0) var<uniform> mouse: Mouse;
 
 @group(1) @binding(0) var<storage, read_write> data: array<Particle>;
-@group(1) @binding(1) var<storage, read_write> forces: array<atomic<i32>>;
+@group(1) @binding(1) var<storage, read_write> forces: array<i32>;
 @group(1) @binding(2) var<storage, read> obstacles: array<Shape>;
+@group(1) @binding(3) var<storage, read> uniform_grid: array<i32>;
+@group(1) @binding(4) var<storage, read> particle_next: array<i32>;
 
-const DELTA_TIME = 0.008;
-const FORCE_SCALE = 1000.0;
+const DELTA_TIME = 0.001;
 
 const MOUSE_THRESHOLD = 0.05;
 const MOUSE_FORCE = 100.0;
 const DAMPING_GLOBAL = 0.995;
-const RADIUS = 0.01;
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id : vec3u) {
@@ -28,6 +30,7 @@ fn main(@builtin(global_invocation_id) global_id : vec3u) {
   let mass = data[index].mass;
   var force = compute_force(index);
   force += compute_mouse_force(pos.xy);
+  force += compute_particle_collision(index);
   if (data[index].is_static == 1u) {
     return;
   }
@@ -38,12 +41,12 @@ fn main(@builtin(global_invocation_id) global_id : vec3u) {
 
   pos.x += vel.x * DELTA_TIME;
   pos.y += vel.y * DELTA_TIME;
-  if (pos.y < -1.0) {
-    pos.y = -1.0;
+  if (pos.y < -BOX_BOUNDARY.y) {
+    pos.y = -BOX_BOUNDARY.y;
     vel.y = -vel.y * 0.9;
   }
-  if (abs(pos.x) > 2.0) {
-    pos.x = clamp(pos.x, -2.0, 2.0);
+  if (abs(pos.x) > BOX_BOUNDARY.x) {
+    pos.x = clamp(pos.x, -BOX_BOUNDARY.x, BOX_BOUNDARY.x);
     vel.x = -vel.x * 0.9;
   }
   let corrected = solve_obstacle_collision(pos.xy, vel);
@@ -55,10 +58,10 @@ fn main(@builtin(global_invocation_id) global_id : vec3u) {
 }
 
 fn compute_force(index: u32) -> vec2f {
-  var f_x = atomicLoad(&forces[index * 2]);
-  var f_y = atomicLoad(&forces[index * 2 + 1]);
-  atomicStore(&forces[index * 2], 0);
-  atomicStore(&forces[index * 2 + 1], 0);
+  var f_x = forces[index * 2];
+  var f_y = forces[index * 2 + 1];
+  forces[index * 2] = 0;
+  forces[index * 2 + 1] = 0;
   return vec2f(f32(f_x) / FORCE_SCALE, f32(f_y) / FORCE_SCALE) + vec2f(0.0, -9.8);
 }
 
@@ -70,12 +73,57 @@ fn compute_mouse_force(pos: vec2f) -> vec2f {
   return force * flip;
 }
 
+fn compute_particle_collision(index: u32) -> vec2f {
+  var total_push = vec2f(0.0);
+  let my_pos = data[index].pos.xy;
+
+  for (var dy = -1; dy <= 1; dy = dy + 1) {
+    for (var dx = -1; dx <= 1; dx = dx + 1) {
+      let neighbor_index = get_neighbor_index(get_my_cell(my_pos), vec2i(dx, dy));
+      if (neighbor_index == -1) {
+        continue;
+      }
+      var other_idx = uniform_grid[neighbor_index];
+      var loopCount = 0;
+      while (other_idx != -1) {
+        let other_idx_u = u32(other_idx);
+        if (other_idx_u != index) {
+          let other_pos = data[other_idx_u].pos.xy;
+          let delta = my_pos - other_pos;
+          let dist = length(delta);
+          if (dist < PARTICLE_RADIUS * 2.0) {
+            let push_dir = normalize(delta);
+            let push_mag = (PARTICLE_RADIUS * 2.0 - dist) * 0.5;
+            total_push += push_dir * push_mag;
+          }
+        }
+        other_idx = particle_next[other_idx_u];
+        loopCount = loopCount + 1;
+        if (loopCount > 1000) {
+          break;
+        }
+      }
+    }
+  }
+
+  return total_push;
+}
+
+fn get_neighbor_index(my_cell: vec2i, offset: vec2i) -> i32 {
+  let neighbor_x = my_cell.x + offset.x;
+  let neighbor_y = my_cell.y + offset.y;
+  if (neighbor_x < 0 || neighbor_x >= COLUMN_NUM || neighbor_y < 0 || neighbor_y >= ROW_NUM) {
+    return -1;
+  }
+  return neighbor_y * COLUMN_NUM + neighbor_x;
+}
+
 fn solve_obstacle_collision(pos: vec2f, vel: vec2f) -> vec4f {
   var new_pos = pos;
   var new_vel = vel;
   for (var i = 0u; i < arrayLength(&obstacles); i = i + 1u) {
     let shape = obstacles[i];
-    let dist = sd_scene(pos, shape) - RADIUS;
+    let dist = sd_scene(pos, shape) - PARTICLE_RADIUS;
     if (dist < 0.0) {
       let normal = get_normal(pos, shape);
       let correction = normal * (-dist) * 1.05;

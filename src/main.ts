@@ -26,12 +26,10 @@ const main = async () => {
       navigator.gpu.getPreferredCanvasFormat(),
     );
     await renderer.initialize(
-      engine.getParticleBuffer(),
       engine.getParticleCount(),
-      engine.getSpringBuffer(),
       engine.getSpringCount(),
-      engine.getObstacleBuffer(),
       engine.getObstacleCount(),
+      engine.getGridCount(),
     );
 
     const aspectRatio = window.innerWidth / window.innerHeight;

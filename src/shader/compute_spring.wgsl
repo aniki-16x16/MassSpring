@@ -1,10 +1,9 @@
 @import './shared/types.wgsl';
+@import './shared/compute_constants.wgsl';
 
 @group(0) @binding(0) var<storage, read_write> springs: array<Spring>;
 @group(0) @binding(1) var<storage, read> particles: array<Particle>;
 @group(0) @binding(2) var<storage, read_write> forces: array<atomic<i32>>;
-
-const FORCE_SCALE = 1000.0;
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id : vec3u) {

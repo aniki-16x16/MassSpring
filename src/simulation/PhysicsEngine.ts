@@ -3,8 +3,9 @@ import { Circle } from "../infrastructure/Shapes/Circle";
 import { Rect } from "../infrastructure/Shapes/Rect";
 import { SpringComputePipeline } from "./SpringPipeline";
 import { ParticleComputePipeline } from "./ParticlePipeline";
-import { ResourceRegistry } from "./ResourceRegistry";
-import type { BaseComputePipeline } from "./BaseComputePipeline";
+import { resourceRegistry } from "../infrastructure/ResourceRegistry";
+import { GridComputePipeline } from "./GridPipeline";
+import { CleanGridPipeline } from "./CleanGridPipeline";
 
 /**
  * PhysicsEngine - 物理引擎
@@ -18,8 +19,17 @@ import type { BaseComputePipeline } from "./BaseComputePipeline";
  */
 export class PhysicsEngine {
   private device: GPUDevice;
-  private registry: ResourceRegistry;
-  private pipelines: BaseComputePipeline[] = [];
+  private pipelines: {
+    particle: ParticleComputePipeline | null;
+    spring: SpringComputePipeline | null;
+    grid: GridComputePipeline | null;
+    cleanGrid: CleanGridPipeline | null;
+  } = {
+    particle: null,
+    spring: null,
+    grid: null,
+    cleanGrid: null,
+  };
 
   // 全局资源
   private mouseBuffer: GPUBuffer | null = null;
@@ -27,7 +37,6 @@ export class PhysicsEngine {
 
   constructor(device: GPUDevice) {
     this.device = device;
-    this.registry = new ResourceRegistry();
   }
 
   async initialize(): Promise<void> {
@@ -35,36 +44,35 @@ export class PhysicsEngine {
     this.createGlobalResources();
 
     // 2. 创建 pipeline 实例
-    const particlePipeline = new ParticleComputePipeline(
-      this.device,
-      this.registry,
-    );
-    const springPipeline = new SpringComputePipeline(
-      this.device,
-      this.registry,
+    const particlePipeline = new ParticleComputePipeline(this.device);
+    const springPipeline = new SpringComputePipeline(this.device);
+    const gridPipeline = new GridComputePipeline(this.device);
+    gridPipeline.instanceCount = particlePipeline.instanceCount;
+    const cleanGridPipeline = new CleanGridPipeline(this.device);
+    cleanGridPipeline.instanceCount = Math.max(
+      particlePipeline.instanceCount,
+      gridPipeline.gridCellCount,
     );
 
-    this.pipelines = [
-      springPipeline,
-      particlePipeline,
-      // 未来添加新功能只需在这里加一行：
-      // new SpatialHashPipeline(this.device, this.registry),
-      // new CollisionPipeline(this.device, this.registry),
-    ];
+    this.pipelines.particle = particlePipeline;
+    this.pipelines.spring = springPipeline;
+    this.pipelines.grid = gridPipeline;
+    this.pipelines.cleanGrid = cleanGridPipeline;
 
     // 3. 初始化 pipelines（解决循环依赖）
     // 循环依赖：Particle 需要 forceBuffer，Spring 需要 particleBuffer
     // 解决方案：分阶段初始化
 
-    // 阶段1：Particle 创建 particleBuffer（不创建 bind group）
     await particlePipeline.initialize();
-
-    // 阶段2：Spring 创建 springBuffer 和 forceBuffer（不创建 bind group）
     await springPipeline.initialize();
+    await gridPipeline.initialize();
+    await cleanGridPipeline.initialize();
 
     // 阶段3：现在所有 buffer 都有了，完成 bind group 创建
     springPipeline.completeInitialization();
     particlePipeline.completeInitialization();
+    gridPipeline.completeInitialization();
+    cleanGridPipeline.completeInitialization();
   }
 
   /**
@@ -77,7 +85,7 @@ export class PhysicsEngine {
       size: 4 * 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
-    this.registry.registerBuffer("mouseBuffer", this.mouseBuffer);
+    resourceRegistry.registerBuffer("mouseBuffer", this.mouseBuffer);
 
     // Obstacle buffer
     this.obstacleBuffer = this.device.createBuffer({
@@ -99,7 +107,7 @@ export class PhysicsEngine {
     );
     this.obstacleBuffer.unmap();
 
-    this.registry.registerBuffer("obstacleBuffer", this.obstacleBuffer);
+    resourceRegistry.registerBuffer("obstacleBuffer", this.obstacleBuffer);
 
     // Global bind group layout
     const globalBindGroupLayout = this.device.createBindGroupLayout({
@@ -112,7 +120,7 @@ export class PhysicsEngine {
         },
       ],
     });
-    this.registry.registerBindGroupLayout(
+    resourceRegistry.registerBindGroupLayout(
       "globalBindGroupLayout",
       globalBindGroupLayout,
     );
@@ -128,7 +136,7 @@ export class PhysicsEngine {
         },
       ],
     });
-    this.registry.registerBindGroup("globalBindGroup", globalBindGroup);
+    resourceRegistry.registerBindGroup("globalBindGroup", globalBindGroup);
   }
 
   /**
@@ -152,46 +160,33 @@ export class PhysicsEngine {
    */
   run(): void {
     const commandEncoder = this.device.createCommandEncoder();
-    const computePass = commandEncoder.beginComputePass();
 
-    // 按顺序执行所有 pipelines
-    this.pipelines.forEach((pipeline) => pipeline.run(computePass));
+    const prePass = commandEncoder.beginComputePass();
+    this.pipelines.spring!.run(prePass);
+    this.pipelines.grid!.run(prePass);
+    prePass.end();
 
-    computePass.end();
+    const particlePass = commandEncoder.beginComputePass();
+    this.pipelines.particle!.run(particlePass);
+    particlePass.end();
+
+    const afterPass = commandEncoder.beginComputePass();
+    this.pipelines.cleanGrid!.run(afterPass);
+    afterPass.end();
+
     this.device.queue.submit([commandEncoder.finish()]);
   }
 
-  // ========== Getters（供渲染器使用）==========
-
-  getParticleBuffer(): GPUBuffer {
-    return this.registry.getBuffer("particleBuffer");
-  }
-
   getParticleCount(): number {
-    // 从 particle pipeline 获取
-    const particlePipeline = this.pipelines.find(
-      (p) => p instanceof ParticleComputePipeline,
-    ) as ParticleComputePipeline;
-    return particlePipeline?.instanceCount || 0;
+    return this.pipelines.particle!.instanceCount;
   }
-
-  getSpringBuffer(): GPUBuffer {
-    return this.registry.getBuffer("springBuffer");
-  }
-
   getSpringCount(): number {
-    // 从 spring pipeline 获取
-    const springPipeline = this.pipelines.find(
-      (p) => p instanceof SpringComputePipeline,
-    ) as SpringComputePipeline;
-    return springPipeline.instanceCount;
+    return this.pipelines.spring!.instanceCount;
   }
-
-  getObstacleBuffer(): GPUBuffer {
-    return this.obstacleBuffer!;
-  }
-
   getObstacleCount(): number {
     return 3;
+  }
+  getGridCount(): number {
+    return this.pipelines.grid!.gridCellCount;
   }
 }

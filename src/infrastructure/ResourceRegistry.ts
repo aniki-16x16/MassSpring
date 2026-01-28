@@ -82,3 +82,5 @@ export class ResourceRegistry {
     console.log("BindGroupLayouts:", Array.from(this.bindGroupLayouts.keys()));
   }
 }
+
+export const resourceRegistry = new ResourceRegistry();

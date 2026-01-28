@@ -1,4 +1,3 @@
-@import './shared/types.wgsl';
 @import './shared/compute_constants.wgsl';
 
 struct VertexInput {
@@ -8,11 +7,10 @@ struct VertexInput {
 
 struct VertexOutput {
   @builtin(position) clip_position: vec4f,
-  @location(0) uv: vec2f,
 };
 
 @group(0) @binding(0) var<uniform> aspect_ratio: f32;
-@group(1) @binding(0) var<storage, read> particles: array<Particle>;
+@group(1) @binding(0) var<storage, read> uniform_grid: array<i32>;
 
 const GRID = array<vec2f, 6>(
   vec2f(-1.0, -1.0),
@@ -27,17 +25,26 @@ const GRID = array<vec2f, 6>(
 fn vs_main(in: VertexInput) -> VertexOutput {
   var out: VertexOutput;
 
-  let particle = particles[in.instance_index];
-  let quad_pos = GRID[in.vertex_index];
-  let final_pos = (particle.pos.xy + quad_pos * PARTICLE_RADIUS) * vec2f(1.0 / aspect_ratio, 1.0);
+  if (uniform_grid[in.instance_index] == -1) {
+    out.clip_position = vec4f(0.0);
+    return out;
+  }
 
+  let quad_pos = GRID[in.vertex_index];
+  let cell = vec2i(
+    i32(in.instance_index) % COLUMN_NUM,
+    i32(in.instance_index) / COLUMN_NUM
+  );
+  let cell_center = vec2f(
+    (f32(cell.x) + 0.5) * CELL_SIZE - 1.0,
+    (f32(cell.y) + 0.5) * CELL_SIZE - 1.0
+  );
+  let final_pos = (cell_center + quad_pos * (CELL_SIZE * 0.5)) * vec2f(1.0 / aspect_ratio, 1.0);
   out.clip_position = vec4f(final_pos, 0.0, 1.0);
-  out.uv = quad_pos;
   return out;
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-  let dist = length(in.uv);
-  return vec4f(vec3f(1.0), smoothstep(1.0, 0.98, dist));
+  return vec4f(0.0, 1.0, 0.0, 0.1);
 }

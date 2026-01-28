@@ -1,4 +1,5 @@
 import { fetchShaderCode } from "../infrastructure/utils";
+import { resourceRegistry } from "../infrastructure/ResourceRegistry";
 
 export interface BindGroupConfig {
   entries: GPUBindGroupLayoutEntry[];
@@ -14,8 +15,9 @@ export interface PipelineConfig {
   blend?: GPUBlendState;
 }
 
-export abstract class BasePipeline {
+export abstract class BaseRenderPipeline {
   protected device: GPUDevice;
+  protected registry = resourceRegistry;
   protected canvasFormat: GPUTextureFormat;
   protected pipeline: GPURenderPipeline | null = null;
   protected bindGroupLayouts: GPUBindGroupLayout[] = [];

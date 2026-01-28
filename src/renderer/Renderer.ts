@@ -1,6 +1,7 @@
-import { ParticlePipeline } from "./ParticlePipeline";
-import { SpringPipeline } from "./SpringPipeline";
-import { ShapePipeline } from "./ShapePipeline";
+import { ParticleRenderPipeline } from "./ParticlePipeline";
+import { SpringRenderPipeline } from "./SpringPipeline";
+import { ShapeRenderPipeline } from "./ShapePipeline";
+import { GridRenderPipeline } from "./GridPipeline";
 
 export class Renderer {
   private device: GPUDevice | null = null;
@@ -11,9 +12,10 @@ export class Renderer {
   private globalBindGroupLayout: GPUBindGroupLayout | null = null;
   private globalBindGroup: GPUBindGroup | null = null;
 
-  private particlePipeline: ParticlePipeline | null = null;
-  private springPipeline: SpringPipeline | null = null;
-  private shapePipeline: ShapePipeline | null = null;
+  private particlePipeline: ParticleRenderPipeline | null = null;
+  private springPipeline: SpringRenderPipeline | null = null;
+  private shapePipeline: ShapeRenderPipeline | null = null;
+  private gridPipeline: GridRenderPipeline | null = null;
 
   constructor(
     device: GPUDevice,
@@ -62,31 +64,29 @@ export class Renderer {
   }
 
   async initialize(
-    particleBuffer: GPUBuffer,
     particleCount: number,
-    springBuffer: GPUBuffer,
     springCount: number,
-    shapeBuffer: GPUBuffer,
     shapeCount: number,
+    gridCount: number,
   ): Promise<void> {
     this.initializeGlobalBindGroup();
 
     // 创建管线实例
-    this.particlePipeline = new ParticlePipeline(
+    this.particlePipeline = new ParticleRenderPipeline(
       this.device!,
       this.canvasFormat!,
-      particleBuffer,
     );
-    this.springPipeline = new SpringPipeline(
+    this.springPipeline = new SpringRenderPipeline(
       this.device!,
       this.canvasFormat!,
-      springBuffer,
-      particleBuffer,
     );
-    this.shapePipeline = new ShapePipeline(
+    this.shapePipeline = new ShapeRenderPipeline(
       this.device!,
       this.canvasFormat!,
-      shapeBuffer,
+    );
+    this.gridPipeline = new GridRenderPipeline(
+      this.device!,
+      this.canvasFormat!,
     );
 
     // 并行初始化所有管线
@@ -103,12 +103,17 @@ export class Renderer {
         this.globalBindGroupLayout!,
         this.globalBindGroup!,
       ),
+      this.gridPipeline.initialize(
+        this.globalBindGroupLayout!,
+        this.globalBindGroup!,
+      ),
     ]);
 
     // 设置实例数量
     this.particlePipeline.setInstanceCount(particleCount);
     this.springPipeline.setInstanceCount(springCount);
     this.shapePipeline.setInstanceCount(shapeCount);
+    this.gridPipeline.setInstanceCount(gridCount);
   }
 
   updateAspectRatio(aspectRatio: number) {
@@ -135,6 +140,7 @@ export class Renderer {
     });
 
     // 按顺序渲染：弹簧 -> 粒子 -> 形状
+    this.gridPipeline?.render(renderPass);
     this.springPipeline?.render(renderPass);
     this.particlePipeline?.render(renderPass);
     this.shapePipeline?.render(renderPass);

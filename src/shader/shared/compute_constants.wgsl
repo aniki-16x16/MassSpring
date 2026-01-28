@@ -1,0 +1,6 @@
+const PARTICLE_RADIUS = 0.01;
+const FORCE_SCALE = 1000.0;
+const BOX_BOUNDARY = vec2f(2.0, 1.0);
+const CELL_SIZE = PARTICLE_RADIUS * 4.0;
+const COLUMN_NUM = i32(BOX_BOUNDARY.x * 2.0 / CELL_SIZE) + 1;
+const ROW_NUM = i32(BOX_BOUNDARY.y * 2.0 / CELL_SIZE) + 1;

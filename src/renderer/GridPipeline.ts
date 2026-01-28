@@ -1,14 +1,14 @@
 import { BaseRenderPipeline, type PipelineConfig } from "./BaseRenderPipeline";
 
-export class ParticleRenderPipeline extends BaseRenderPipeline {
+export class GridRenderPipeline extends BaseRenderPipeline {
   constructor(device: GPUDevice, canvasFormat: GPUTextureFormat) {
     super(device, canvasFormat);
   }
 
   protected getConfig(): PipelineConfig {
     return {
-      shaderPath: "src/shader/render_particle.wgsl",
-      label: "[Renderer][Particle]",
+      shaderPath: "src/shader/render_uniform_grid.wgsl",
+      label: "[Renderer][Grid]",
       bindGroupConfigs: [
         {
           entries: [
@@ -31,7 +31,7 @@ export class ParticleRenderPipeline extends BaseRenderPipeline {
         {
           binding: 0,
           resource: {
-            buffer: this.registry.getBuffer("particleBuffer"),
+            buffer: this.registry.getBuffer("gridBuffer"),
           },
         },
       ],
