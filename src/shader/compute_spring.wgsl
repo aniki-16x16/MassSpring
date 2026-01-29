@@ -14,6 +14,12 @@ fn main(@builtin(global_invocation_id) global_id : vec3u) {
   }
 
   let spring = springs[index];
+  
+  // [Optimization] 1. 快速剔除: 如果弹簧已断裂，直接跳过昂贵的数学计算
+  if (spring.is_broken > 0.0) {
+      return;
+  }
+
   let pos_a = particles[spring.a].pos.xy;
   let pos_b = particles[spring.b].pos.xy;
 

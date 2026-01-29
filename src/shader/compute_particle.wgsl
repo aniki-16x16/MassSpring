@@ -11,7 +11,7 @@
 @group(1) @binding(3) var<storage, read> uniform_grid: array<i32>;
 @group(1) @binding(4) var<storage, read> particle_next: array<i32>;
 
-const DELTA_TIME = 0.003;
+const DELTA_TIME = 0.006;
 
 const MOUSE_THRESHOLD = 0.05;
 const MOUSE_FORCE = 100.0;

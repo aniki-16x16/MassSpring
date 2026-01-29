@@ -25,11 +25,11 @@ export class PhysicsEngine {
     grid: GridComputePipeline | null;
     cleanGrid: CleanGridPipeline | null;
   } = {
-      particle: null,
-      spring: null,
-      grid: null,
-      cleanGrid: null,
-    };
+    particle: null,
+    spring: null,
+    grid: null,
+    cleanGrid: null,
+  };
 
   // 全局资源
   private mouseBuffer: GPUBuffer | null = null;
